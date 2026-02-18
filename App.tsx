@@ -1,20 +1,32 @@
+import React, { useState } from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { LoginScreen } from './src/features/auth/LoginScreen';
+import { RootNavigator } from './src/navigation/RootNavigator';
+import { User } from './src/types/domain';
 
 export default function App() {
+  const [user, setUser] = useState<User | null>(null);
+
+  const handleLogin = (authenticatedUser: User) => {
+    setUser(authenticatedUser);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+  };
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaProvider>
+      <NavigationContainer>
+        <StatusBar style="dark" />
+        {!user ? (
+          <LoginScreen onLoginSuccess={handleLogin} />
+        ) : (
+          <RootNavigator role={user.role} onLogout={handleLogout} />
+        )}
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
