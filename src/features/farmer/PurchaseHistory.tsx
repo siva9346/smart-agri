@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, Text, FlatList, StyleSheet, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING } from '../../theme';
 import { mockRepository } from '../../repositories/MockRepository';
@@ -10,6 +10,9 @@ import { LoadingState, EmptyState } from '../../components/States';
 export const PurchaseHistory = () => {
   const [history, setHistory] = useState<IPurchaseHistory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dateFilter, setDateFilter] = useState('');
+  const [priceFilter, setPriceFilter] = useState('');
+  const [nameFilter, setNameFilter] = useState('');
 
   useEffect(() => {
     mockRepository.getPurchaseHistory('1').then(res => {
@@ -18,12 +21,54 @@ export const PurchaseHistory = () => {
     });
   }, []);
 
+  const filteredHistory = useMemo(() => {
+    return history.filter(item => {
+      const matchDate = dateFilter === '' || item.date.includes(dateFilter);
+      const matchPrice = priceFilter === '' || String(item.totalPrice).includes(priceFilter);
+      const matchName = nameFilter === '' || item.productName.toLowerCase().includes(nameFilter.toLowerCase());
+      return matchDate && matchPrice && matchName;
+    });
+  }, [history, dateFilter, priceFilter, nameFilter]);
+
   if (loading) return <LoadingState />;
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <FlatList
-        data={history}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <FlatList
+          ListHeaderComponent={
+            <View style={styles.filterContainer}>
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterLabel}>Date</Text>
+                <TextInput
+                  style={styles.filterInput}
+                  placeholder="Filter by date"
+                  value={dateFilter}
+                  onChangeText={setDateFilter}
+                />
+              </View>
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterLabel}>Price</Text>
+                <TextInput
+                  style={styles.filterInput}
+                  placeholder="Filter by price"
+                  keyboardType="numeric"
+                  value={priceFilter}
+                  onChangeText={setPriceFilter}
+                />
+              </View>
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterLabel}>Product Name</Text>
+                <TextInput
+                  style={styles.filterInput}
+                  placeholder="Filter by product name"
+                  value={nameFilter}
+                  onChangeText={setNameFilter}
+                />
+              </View>
+            </View>
+          }
+          data={filteredHistory}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.container}
         renderItem={({ item }) => (
@@ -43,6 +88,7 @@ export const PurchaseHistory = () => {
         )}
         ListEmptyComponent={<EmptyState message="No purchase history found" />}
       />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -51,6 +97,27 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  filterContainer: {
+    paddingBottom: SPACING.md,
+  },
+  filterGroup: {
+    marginBottom: SPACING.sm,
+  },
+  filterLabel: {
+    fontSize: 14,
+    color: COLORS.text,
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  filterInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    backgroundColor: '#fff',
   },
   container: {
     padding: SPACING.md,

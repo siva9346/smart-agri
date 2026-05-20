@@ -6,7 +6,7 @@ import { mockRepository } from '../../repositories/MockRepository';
 import { Land } from '../../types/domain';
 import { Card } from '../../components/Card';
 import { LoadingState, EmptyState, ErrorState } from '../../components/States';
-import { LayoutGrid, ShoppingCart, MessageSquare, CloudRain, ShieldCheck } from 'lucide-react-native';
+import { LayoutGrid, ShoppingCart, MessageSquare, CloudRain, ShieldCheck, Sprout, BookOpen } from 'lucide-react-native';
 
 export const FarmerDashboard = ({ navigation }: any) => {
   const [lands, setLands] = useState<Land[]>([]);
@@ -38,14 +38,19 @@ export const FarmerDashboard = ({ navigation }: any) => {
     { id: '2', title: 'History', icon: LayoutGrid, screen: 'PurchaseHistory' },
     { id: '3', title: 'Enquiry', icon: MessageSquare, screen: 'Enquiry' },
     { id: '4', title: 'Symptoms', icon: ShieldCheck, screen: 'Symptoms' },
-    { id: '5', title: 'Rain', icon: CloudRain, screen: 'RainUpdates' },
+    { id: '5', title: 'Weather', icon: CloudRain, screen: 'RainUpdates' },
+    { id: '6', title: 'Crop Track', icon: Sprout, screen: 'CropTrackingHome' },
+    { id: '7', title: 'Expert Advice', icon: BookOpen, screen: 'ExpertAdvice' },
   ];
 
   const renderHeader = () => (
     <View>
       <View style={styles.welcomeSection}>
-        <Text style={styles.welcomeText}>Hello, John Doe!</Text>
-        <Text style={styles.subtitle}>Your Farm Overview</Text>
+        <Text style={styles.welcomeText}>Hello, Murugan!</Text>
+        <Text style={styles.subtitleTitle}>
+          விவசாய பயிர் கண்காணிப்பு மற்றும் உர ஊட்டல் செயலி{'\n'}
+          Agriculture Crop Tracking and Fertilizer Feeding App
+        </Text>
       </View>
 
       <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -83,11 +88,13 @@ export const FarmerDashboard = ({ navigation }: any) => {
         ListHeaderComponent={renderHeader}
         refreshControl={<RefreshControl refreshing={Boolean(loading)} onRefresh={fetchData} />}
         renderItem={({ item }) => (
-          <Card>
-            <Text style={styles.landTitle}>{item.cropType}</Text>
-            <Text style={styles.landDetail}>Area: {item.area}</Text>
-            <Text style={styles.landDetail}>Location: {item.location}</Text>
-          </Card>
+          <TouchableOpacity onPress={() => navigation.navigate('CropTrackingHome')}>
+            <Card>
+              <Text style={styles.landTitle}>{item.cropType}</Text>
+              <Text style={styles.landDetail}>Area: {item.area}</Text>
+              <Text style={styles.landDetail}>Location: {item.location}</Text>
+            </Card>
+          </TouchableOpacity>
         )}
         ListEmptyComponent={<EmptyState message="No lands registered yet" />}
       />
@@ -112,9 +119,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.text,
   },
-  subtitle: {
-    fontSize: 16,
+  subtitleTitle: {
+    fontSize: 14,
     color: COLORS.textSecondary,
+    marginTop: SPACING.sm,
+    lineHeight: 20,
   },
   sectionTitle: {
     fontSize: 18,

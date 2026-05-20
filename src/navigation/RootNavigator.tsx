@@ -2,15 +2,53 @@ import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { LogOut, Home, ShoppingBag, CloudRain, ShieldAlert, User as UserIcon } from 'lucide-react-native';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
+import { LogOut, Home, ShoppingBag, CloudRain, ShoppingCart, User as UserIcon, Users, MessageSquare, ArrowLeft } from 'lucide-react-native';
 import { FarmerDashboard } from '../features/farmer/FarmerDashboard';
-import { AdminDashboard } from '../features/admin/AdminDashboard';
 import { FertilizerList } from '../features/farmer/FertilizerList';
 import { RainUpdates, SymptomsView } from '../features/advisory/AdvisoryScreens';
 import { AddLandScreen } from '../features/farmer/AddLandScreen';
 import { PurchaseHistory } from '../features/farmer/PurchaseHistory';
 import { EnquiryScreen } from '../features/farmer/EnquiryScreen';
 import { AdminActionPlaceholder } from '../features/admin/AdminActionPlaceholder';
+import { AdminTabNavigator } from './AdminTabNavigator';
+import { AdminDashboardScreen } from '../features/admin/screens/AdminDashboardScreen';
+import { OrderListScreen as AdminOrderListScreen } from '../features/admin/screens/OrderListScreen';
+import { OrderDetailsScreen } from '../features/admin/screens/OrderDetailsScreen';
+import { StockListScreen } from '../features/admin/screens/StockListScreen';
+import { AddStockScreen as AdminAddStockScreen } from '../features/admin/screens/AddStockScreen';
+import { EditStockScreen } from '../features/admin/screens/EditStockScreen';
+import { CustomerListScreen } from '../features/admin/screens/CustomerListScreen';
+import { AddCustomerScreen as AdminAddCustomerScreen } from '../features/admin/screens/AddCustomerScreen';
+import { CustomerDetailsScreen } from '../features/admin/screens/CustomerDetailsScreen';
+import { EnquiryListScreen } from '../features/admin/screens/EnquiryListScreen';
+import { EnquiryDetailsScreen } from '../features/admin/screens/EnquiryDetailsScreen';
+import { SymptomsListScreen } from '../features/admin/screens/SymptomsListScreen';
+import { AddSymptomScreen } from '../features/admin/screens/AddSymptomScreen';
+import { EditSymptomScreen } from '../features/admin/screens/EditSymptomScreen';
+import { NotificationListScreen } from '../features/admin/screens/NotificationListScreen';
+import { AddNotificationScreen } from '../features/admin/screens/AddNotificationScreen';
+import { EditNotificationScreen } from '../features/admin/screens/EditNotificationScreen';
+import { 
+  ProductListScreen, 
+  ProductDetailsScreen, 
+  CartScreen, 
+  CheckoutScreen, 
+  OrderListScreen,
+  AddProductScreen
+} from '../features/products';
+import {
+  CropTrackingHomeScreen,
+  CropCycleScreen,
+  CropTrackingScreen,
+  AddDailyRecordScreen,
+  AddExpenseEntryScreen,
+  ExpenseSummaryScreen,
+  ExpenseBreakdownScreen,
+  AddCropCycleScreen,
+} from '../features/cropTracking';
+import { ExpertAdviceScreen } from '../features/farmer/ExpertAdviceScreen';
+import { ExpertAdviceListScreen } from '../features/admin/screens/ExpertAdviceListScreen';
 import { COLORS, SPACING } from '../theme';
 import { UserRole } from '../types/domain';
 
@@ -50,90 +88,171 @@ const FarmerTabs = () => (
     />
     <Tab.Screen 
       name="Fertilizers" 
-      component={FertilizerList} 
+      component={ProductListScreen} 
+      initialParams={{ role: 'customer' }}
       options={{ tabBarIcon: ({ color }) => <ShoppingBag color={color} size={24} /> }}
     />
     <Tab.Screen 
-      name="Rain" 
+      name="Weather" 
       component={RainUpdates} 
       options={{ tabBarIcon: ({ color }) => <CloudRain color={color} size={24} /> }}
     />
     <Tab.Screen 
-      name="Symptoms" 
-      component={SymptomsView} 
-      options={{ tabBarIcon: ({ color }) => <ShieldAlert color={color} size={24} /> }}
+      name="CartTab" 
+      component={CartScreen} 
+      options={{ title: 'Cart', tabBarIcon: ({ color }) => <ShoppingCart color={color} size={24} /> }}
     />
   </Tab.Navigator>
 );
 
-const AdminTabs = () => (
-  <Tab.Navigator 
-    screenOptions={{ 
-      tabBarActiveTintColor: COLORS.secondary,
-      headerShown: Boolean(false) 
-    }}
+const getCommonOptions = (onLogout: () => void) => ({
+  headerRight: () => <HeaderRight onLogout={onLogout} />,
+  headerShadowVisible: Boolean(false),
+  headerStyle: { backgroundColor: COLORS.background },
+  headerTitleAlign: 'center' as const,
+});
+
+const FarmerNavigator = ({ onLogout }: any) => (
+  <FarmerStack.Navigator
+    screenOptions={({ navigation }) => ({
+      ...getCommonOptions(onLogout),
+      headerShown: true,
+      headerLeft: ({ canGoBack }) => canGoBack ? (
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.circularBackBtn}>
+          <ArrowLeft size={22} color="#1A1A1A" />
+        </TouchableOpacity>
+      ) : null
+    })}
   >
-    <Tab.Screen 
-      name="Admin" 
-      component={AdminDashboard} 
-      options={{ tabBarIcon: ({ color }) => <UserIcon color={color} size={24} /> }}
+    <FarmerStack.Screen
+      name="FarmerTabs"
+      component={FarmerTabs}
+      options={({ navigation, route }) => {
+        const activeTab = getFocusedRouteNameFromRoute(route) ?? 'Home';
+        const isHomeTab = activeTab === 'Home';
+        return {
+          headerTitle: () => <HeaderTitle />,
+          headerLeft: isHomeTab ? undefined : () => (
+            <TouchableOpacity
+              onPress={() => (navigation as any).navigate('FarmerTabs', { screen: 'Home' })}
+              style={styles.circularBackBtn}
+            >
+              <ArrowLeft size={22} color="#1A1A1A" />
+            </TouchableOpacity>
+          ),
+        };
+      }}
     />
-    <Tab.Screen 
-      name="Enquiries" 
-      component={RainUpdates} 
-      options={{ tabBarIcon: ({ color }) => <CloudRain color={color} size={24} /> }}
+    <FarmerStack.Screen 
+      name="FertilizerList" 
+      component={ProductListScreen} 
+      initialParams={{ role: 'customer' }}
+      options={{ title: 'Agri Store' }} 
     />
-  </Tab.Navigator>
+    <FarmerStack.Screen name="ProductDetails" component={ProductDetailsScreen} options={{ title: 'Product Info' }} />
+    <FarmerStack.Screen name="Cart" component={CartScreen} options={{ title: 'My Cart' }} />
+    <FarmerStack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Confirm Order' }} />
+    <FarmerStack.Screen name="RainUpdates" component={RainUpdates} options={{ title: 'Weather Forecast' }} />
+    <FarmerStack.Screen name="Symptoms" component={SymptomsView} options={{ title: 'Crop Symptoms' }} />
+    <FarmerStack.Screen name="AddLand" component={AddLandScreen} options={{ title: 'Add New Land' }} />
+    <FarmerStack.Screen name="PurchaseHistory" component={PurchaseHistory} options={{ title: 'Purchase History' }} />
+    <FarmerStack.Screen name="Enquiry" component={EnquiryScreen} options={{ title: 'Book Enquiry' }} />
+    
+    {/* Crop Tracking & Expense Management */}
+    <FarmerStack.Screen name="CropTrackingHome" component={CropTrackingHomeScreen} options={{ title: 'My Farm Lands' }} />
+    <FarmerStack.Screen name="CropCycle" component={CropCycleScreen} options={{ title: 'Crop Activity' }} />
+    <FarmerStack.Screen name="CropTracking" component={CropTrackingScreen} options={{ title: 'Activity Timeline' }} />
+    <FarmerStack.Screen name="AddDailyRecord" component={AddDailyRecordScreen} options={{ title: 'Add Entry' }} />
+    <FarmerStack.Screen name="AddExpenseEntry" component={AddExpenseEntryScreen} options={{ title: 'Add Activity Record' }} />
+    <FarmerStack.Screen name="ExpenseSummary" component={ExpenseSummaryScreen} options={{ title: 'Expense Analysis' }} />
+    <FarmerStack.Screen name="ExpenseBreakdown" component={ExpenseBreakdownScreen} options={{ title: 'Breakdown' }} />
+    <FarmerStack.Screen name="AddCropCycle" component={AddCropCycleScreen} options={{ title: 'New Cultivation' }} />
+    <FarmerStack.Screen name="ExpertAdvice" component={ExpertAdviceScreen} options={{ title: 'Expert Advice' }} />
+  </FarmerStack.Navigator>
+);
+
+const AdminNavigator = ({ onLogout, role }: any) => (
+  <AdminStack.Navigator
+    screenOptions={({ navigation }) => ({
+      ...getCommonOptions(onLogout),
+      headerShown: true,
+      headerLeft: ({ canGoBack }) => canGoBack ? (
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.circularBackBtn}>
+          <ArrowLeft size={22} color="#1A1A1A" />
+        </TouchableOpacity>
+      ) : null
+    })}
+  >
+    <AdminStack.Screen
+      name="AdminTabs"
+      component={AdminTabNavigator}
+      options={({ navigation, route }) => {
+        const activeTab = getFocusedRouteNameFromRoute(route) ?? 'Dashboard';
+        const isDashboardTab = activeTab === 'Dashboard';
+        return {
+          headerTitle: () => <HeaderTitle />,
+          headerLeft: isDashboardTab ? undefined : () => (
+            <TouchableOpacity
+              onPress={() => (navigation as any).navigate('AdminTabs', { screen: 'Dashboard' })}
+              style={styles.circularBackBtn}
+            >
+              <ArrowLeft size={22} color="#1A1A1A" />
+            </TouchableOpacity>
+          ),
+        };
+      }}
+    />
+    <AdminStack.Screen name="AddCustomer" component={CustomerListScreen} options={{ title: 'Customer List' }} />
+    <AdminStack.Screen name="ManageStock" component={StockListScreen} options={{ title: 'Inventory Stock' }} />
+    <AdminStack.Screen name="OrderDetails" component={OrderDetailsScreen} options={{ title: 'Order Info' }} />
+    <AdminStack.Screen name="AddStock" component={AdminAddStockScreen} options={{ title: 'Add Inventory' }} />
+    <AdminStack.Screen name="EditStock" component={EditStockScreen} options={{ title: 'Modify Inventory' }} />
+    <AdminStack.Screen name="CreateCustomer" component={AdminAddCustomerScreen} options={{ title: 'Register Farmer' }} />
+    <AdminStack.Screen name="CustomerDetails" component={CustomerDetailsScreen} options={{ title: 'Profile' }} />
+    <AdminStack.Screen name="ManagePrice" component={AdminActionPlaceholder} options={{ title: 'Update Price' }} />
+    <AdminStack.Screen name="UpdateRain" component={RainUpdates} options={{ title: 'Update Weather Data' }} />
+    <AdminStack.Screen name="EnquiryList" component={EnquiryListScreen} options={{ title: 'User Enquiries' }} />
+    <AdminStack.Screen name="EnquiryDetails" component={EnquiryDetailsScreen} options={{ title: 'Enquiry Details' }} />
+    <AdminStack.Screen name="SymptomsList" component={SymptomsListScreen} options={{ title: 'Symptom Records' }} />
+    <AdminStack.Screen name="AddSymptom" component={AddSymptomScreen} options={{ title: 'Add Record' }} />
+    <AdminStack.Screen name="EditSymptom" component={EditSymptomScreen} options={{ title: 'Edit Record' }} />
+    <AdminStack.Screen name="NotificationList" component={NotificationListScreen} options={{ title: 'Notifications' }} />
+    <AdminStack.Screen name="AddNotification" component={AddNotificationScreen} options={{ title: 'New Alert' }} />
+    <AdminStack.Screen name="EditNotification" component={EditNotificationScreen} options={{ title: 'Edit Alert' }} />
+    <AdminStack.Screen 
+      name="FertilizerList" 
+      component={ProductListScreen} 
+      initialParams={{ role: (role || '').toLowerCase() }}
+      options={{ title: 'Inventory' }} 
+    />
+    <AdminStack.Screen name="OrderList" component={AdminOrderListScreen} options={{ title: 'Customer Orders' }} />
+    <AdminStack.Screen name="AddProduct" component={AddProductScreen} options={{ title: 'Add New Item' }} />
+    <AdminStack.Screen name="ProductDetails" component={ProductDetailsScreen} options={{ title: 'Item Details' }} />
+    <AdminStack.Screen name="Cart" component={CartScreen} options={{ title: 'Mock Cart' }} />
+    <AdminStack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Confirm Order' }} />
+
+    {/* Crop Tracking & Expense Management */}
+    <AdminStack.Screen name="CropCycle" component={CropCycleScreen} options={{ title: 'Crop Activity' }} />
+    <AdminStack.Screen name="CropTracking" component={CropTrackingScreen} options={{ title: 'Activity Timeline' }} />
+    <AdminStack.Screen name="AddExpenseEntry" component={AddExpenseEntryScreen} options={{ title: 'Add Activity Record' }} />
+    <AdminStack.Screen name="ExpenseSummary" component={ExpenseSummaryScreen} options={{ title: 'Expense Analysis' }} />
+    <AdminStack.Screen name="ExpenseBreakdown" component={ExpenseBreakdownScreen} options={{ title: 'Breakdown' }} />
+    <AdminStack.Screen name="AddCropCycle" component={AddCropCycleScreen} options={{ title: 'New Cultivation' }} />
+    <AdminStack.Screen name="ExpertAdviceList" component={ExpertAdviceListScreen} options={{ title: 'Expert Advice Requests' }} />
+  </AdminStack.Navigator>
 );
 
 export const RootNavigator = ({ role, onLogout }: { role: UserRole, onLogout: () => void }) => {
-  const commonOptions = {
-    headerTitle: () => <HeaderTitle />,
-    headerRight: () => <HeaderRight onLogout={onLogout} />,
-    headerShadowVisible: Boolean(false),
-    headerStyle: { backgroundColor: COLORS.background },
-  };
-
-  const FarmerNavigator = () => (
-    <FarmerStack.Navigator screenOptions={commonOptions}>
-      <FarmerStack.Screen 
-        name="FarmerTabs" 
-        component={FarmerTabs} 
-        options={{ headerTitle: () => <HeaderTitle /> }} 
-      />
-      <FarmerStack.Screen name="FertilizerList" component={FertilizerList} options={{ title: 'Products' }} />
-      <FarmerStack.Screen name="RainUpdates" component={RainUpdates} options={{ title: 'Rain Forecast' }} />
-      <FarmerStack.Screen name="Symptoms" component={SymptomsView} options={{ title: 'Crop Symptoms' }} />
-      <FarmerStack.Screen name="AddLand" component={AddLandScreen} options={{ title: 'Add New Land' }} />
-      <FarmerStack.Screen name="PurchaseHistory" component={PurchaseHistory} options={{ title: 'Purchase History' }} />
-      <FarmerStack.Screen name="Enquiry" component={EnquiryScreen} options={{ title: 'Book Enquiry' }} />
-    </FarmerStack.Navigator>
-  );
-
-  const AdminNavigator = () => (
-    <AdminStack.Navigator screenOptions={commonOptions}>
-      <AdminStack.Screen 
-        name="AdminTabs" 
-        component={AdminTabs} 
-        options={{ headerTitle: () => <HeaderTitle /> }} 
-      />
-      <AdminStack.Screen name="AddCustomer" component={AdminActionPlaceholder} options={{ title: 'Add Customer' }} />
-      <AdminStack.Screen name="ManageStock" component={AdminActionPlaceholder} options={{ title: 'Update Stock' }} />
-      <AdminStack.Screen name="ManagePrice" component={AdminActionPlaceholder} options={{ title: 'Update Price' }} />
-      <AdminStack.Screen name="ViewEnquiries" component={AdminActionPlaceholder} options={{ title: 'View Enquiries' }} />
-      <AdminStack.Screen name="UpdateRain" component={RainUpdates} options={{ title: 'Update Rain Data' }} />
-      <AdminStack.Screen name="UpdateSymptoms" component={SymptomsView} options={{ title: 'Update Symptoms' }} />
-      <AdminStack.Screen name="CustomerDetails" component={AdminActionPlaceholder} options={{ title: 'Customer Details' }} />
-      <AdminStack.Screen name="FertilizerList" component={FertilizerList} options={{ title: 'Management' }} />
-    </AdminStack.Navigator>
-  );
-
   return (
     <MainStack.Navigator screenOptions={{ headerShown: Boolean(false) }}>
       {role === 'ADMIN' ? (
-        <MainStack.Screen name="AdminRoot" component={AdminNavigator} />
+        <MainStack.Screen name="AdminRoot">
+             {props => <AdminNavigator {...props} onLogout={onLogout} role={role} />}
+        </MainStack.Screen>
       ) : (
-        <MainStack.Screen name="FarmerRoot" component={FarmerNavigator} />
+        <MainStack.Screen name="FarmerRoot">
+             {props => <FarmerNavigator {...props} onLogout={onLogout} />}
+        </MainStack.Screen>
       )}
     </MainStack.Navigator>
   );
@@ -156,5 +275,14 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     padding: SPACING.sm,
+  },
+  circularBackBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: SPACING.sm,
   },
 });

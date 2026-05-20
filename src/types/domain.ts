@@ -13,6 +13,8 @@ export interface Land {
   area: string;
   cropType: string;
   location: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface FertilizerProduct {

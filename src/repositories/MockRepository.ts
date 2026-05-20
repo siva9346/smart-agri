@@ -10,14 +10,14 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const MOCK_USER: User = {
   id: '1',
   phone: '1234567890',
-  name: 'John Doe',
+  name: 'Murugan',
   role: 'FARMER'
 };
 
 const MOCK_ADMIN: User = {
   id: '2',
   phone: '0987654321',
-  name: 'Admin User',
+  name: 'Ramdas Admin',
   role: 'ADMIN'
 };
 

@@ -38,7 +38,10 @@ export const EnquiryScreen = ({ navigation }: any) => {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>Book an Enquiry</Text>
-        <Text style={styles.subtitle}>Our experts will get back to you shortly.</Text>
+        <Text style={styles.subtitle}>
+          Please write your enquiry clearly. Our experts will get back to you shortly.{'\n'}
+          தயவுசெய்து உங்கள் கேள்வியை தெளிவாக எழுதுங்கள். எங்கள் நிபுணர்கள் விரைவில் உங்களை தொடர்புகொள்வார்கள்.
+        </Text>
 
         <View style={styles.field}>
           <Text style={styles.label}>Subject</Text>
@@ -93,6 +96,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSecondary,
     marginBottom: SPACING.xl,
+    lineHeight: 20,
+    flexWrap: 'wrap',
   },
   field: {
     marginBottom: SPACING.lg,
