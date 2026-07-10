@@ -8,46 +8,34 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { Product } from '../../../types/product';
-import { productService } from '../services/productService';
+import { useDispatch } from 'react-redux';
+import { ApiProduct, productService } from '../services/productService';
+import { addToCart } from '../../../store/cartSlice';
 
 export const ProductDetailsScreen = ({ route, navigation }: any) => {
   const { productId } = route.params;
-  const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [product,  setProduct]  = useState<ApiProduct | null>(null);
+  const [loading,  setLoading]  = useState(true);
   const [quantity, setQuantity] = useState(1);
+  const dispatch = useDispatch();
 
   useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        const data = await productService.getProductById(productId);
-        if (data) {
-          setProduct(data);
-        } else {
-          Alert.alert('Error', 'Product not found');
-          navigation.goBack();
-        }
-      } catch (error) {
+    productService.getProductById(productId)
+      .then(setProduct)
+      .catch(() => {
         Alert.alert('Error', 'Failed to load product details');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProduct();
+        navigation.goBack();
+      })
+      .finally(() => setLoading(false));
   }, [productId, navigation]);
 
-  const handleAddToCart = async () => {
+  const handleAddToCart = () => {
     if (!product) return;
-    try {
-      await productService.addToCart(product.id, quantity);
-      Alert.alert('Success', `${quantity} x ${product.name} added to cart!`, [
-        { text: 'Continue Shopping' },
-        { text: 'Go to Cart', onPress: () => navigation.navigate('Cart') }
-      ]);
-    } catch (error) {
-      Alert.alert('Error', 'Could not add to cart');
-    }
+    dispatch(addToCart({ productId: product.productId, name: product.name, price: product.price, quantity }));
+    Alert.alert('Success', `${quantity} × ${product.name} added to cart!`, [
+      { text: 'Continue Shopping' },
+      { text: 'Go to Cart', onPress: () => navigation.navigate('Cart') },
+    ]);
   };
 
   if (loading) {
@@ -65,17 +53,20 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
       <View style={styles.content}>
         <Text style={styles.category}>{product.category}</Text>
         <Text style={styles.name}>{product.name}</Text>
-        <Text style={styles.price}>₹{product.price.toFixed(2)}</Text>
-        
+        <Text style={styles.price}>
+          ₹{product.price.toFixed(2)}{product.unit ? ` / ${product.unit}` : ''}
+        </Text>
+
         <View style={styles.divider} />
-        
+
         <Text style={styles.sectionTitle}>Description</Text>
         <Text style={styles.description}>{product.description}</Text>
-        
+
         <View style={styles.divider} />
-        
+
         <Text style={styles.stockInfo}>
-          Availability: <Text style={product.stock > 0 ? styles.inStock : styles.outOfStock}>
+          Availability:{' '}
+          <Text style={product.stock > 0 ? styles.inStock : styles.outOfStock}>
             {product.stock > 0 ? `${product.stock} items left in stock` : 'Out of stock'}
           </Text>
         </Text>
@@ -110,103 +101,23 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: {
-    padding: 24,
-  },
-  category: {
-    fontSize: 14,
-    color: '#2e7d32',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  name: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 12,
-  },
-  price: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 20,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#eee',
-    marginVertical: 20,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  description: {
-    fontSize: 16,
-    color: '#666',
-    lineHeight: 24,
-  },
-  stockInfo: {
-    fontSize: 14,
-    color: '#444',
-    marginBottom: 24,
-  },
-  inStock: {
-    color: '#2e7d32',
-    fontWeight: '600',
-  },
-  outOfStock: {
-    color: '#d32f2f',
-    fontWeight: '600',
-  },
-  purchaseSection: {
-    marginTop: 10,
-  },
-  quantityControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  qtyBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  qtyBtnText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  qtyText: {
-    fontSize: 18,
-    marginHorizontal: 20,
-    minWidth: 20,
-    textAlign: 'center',
-  },
-  addToCartBtn: {
-    backgroundColor: '#2e7d32',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  addToCartBtnText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
+  container:       { flex: 1, backgroundColor: '#fff' },
+  centered:        { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  content:         { padding: 24 },
+  category:        { fontSize: 14, color: '#2e7d32', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 },
+  name:            { fontSize: 28, fontWeight: 'bold', color: '#333', marginBottom: 12 },
+  price:           { fontSize: 24, fontWeight: '700', color: '#333', marginBottom: 20 },
+  divider:         { height: 1, backgroundColor: '#eee', marginVertical: 20 },
+  sectionTitle:    { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 8 },
+  description:     { fontSize: 16, color: '#666', lineHeight: 24 },
+  stockInfo:       { fontSize: 14, color: '#444', marginBottom: 24 },
+  inStock:         { color: '#2e7d32', fontWeight: '600' },
+  outOfStock:      { color: '#d32f2f', fontWeight: '600' },
+  purchaseSection: { marginTop: 10 },
+  quantityControls:{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
+  qtyBtn:          { width: 40, height: 40, borderRadius: 20, backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' },
+  qtyBtnText:      { fontSize: 20, fontWeight: 'bold', color: '#333' },
+  qtyText:         { fontSize: 18, marginHorizontal: 20, minWidth: 20, textAlign: 'center' },
+  addToCartBtn:    { backgroundColor: '#2e7d32', paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
+  addToCartBtnText:{ color: '#fff', fontSize: 18, fontWeight: 'bold' },
 });

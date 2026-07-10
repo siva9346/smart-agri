@@ -1,0 +1,82 @@
+name: Deploy Backend to AWS
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy.yml'
+
+permissions:
+  id-token: write   # Required for OIDC token issuance
+  contents: read
+
+env:
+  AWS_REGION:    ap-south-1
+  STACK_NAME:    naveena-uzhavan
+  SAM_S3_PREFIX: naveena-uzhavan
+
+jobs:
+  deploy:
+    name: SAM Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── 2. Configure AWS credentials via OIDC (no long-lived keys) ──────────
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region:     ${{ env.AWS_REGION }}
+
+      # ── 3. Set up Python (matches Lambda runtime) ───────────────────────────
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # ── 4. Set up SAM CLI ───────────────────────────────────────────────────
+      - name: Set up SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      # ── 5. Cache SAM build artifacts ────────────────────────────────────────
+      - name: Cache SAM build
+        uses: actions/cache@v4
+        with:
+          path: backend/.aws-sam
+          key: sam-${{ runner.os }}-${{ hashFiles('backend/src/requirements.txt', 'backend/template.yaml') }}
+          restore-keys: |
+            sam-${{ runner.os }}-
+
+      # ── 6. SAM build ─────────────────────────────────────────────────────────
+      - name: SAM build
+        working-directory: backend
+        run: sam build --cached --parallel
+
+      # ── 7. SAM deploy ────────────────────────────────────────────────────────
+      - name: SAM deploy
+        working-directory: backend
+        run: |
+          sam deploy \
+            --stack-name ${{ env.STACK_NAME }} \
+            --region ${{ env.AWS_REGION }} \
+            --s3-prefix ${{ env.SAM_S3_PREFIX }} \
+            --capabilities CAPABILITY_IAM \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --resolve-s3
+
+      # ── 8. Print API URL ─────────────────────────────────────────────────────
+      - name: Print API URL
+        run: |
+          aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }} \
+            --region ${{ env.AWS_REGION }} \
+            --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" \
+            --output text

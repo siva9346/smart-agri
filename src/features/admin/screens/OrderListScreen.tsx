@@ -1,255 +1,118 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  StyleSheet,
-  TouchableOpacity,
-  SafeAreaView,
-  Platform,
-} from 'react-native';
-
-const PAGE_SIZE = 20;
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
-import { Package, Calendar, MapPin, User, ChevronRight } from 'lucide-react-native';
+import { api } from '../../../services/api';
+import { LoadingState, EmptyState, ErrorState } from '../../../components/States';
 
-const DUMMY_ORDERS = [
-  {
-    id: 'ORD-10293',
-    customerName: 'Ravi Kumar',
-    address: 'Ambattur, Chennai',
-    phone: '9876543210',
-    total: 1950,
-    status: 'Pending',
-    createdAt: new Date().toISOString(),
-    items: [
-      { name: 'Urea Fertilizer', quantity: 2, price: 650 },
-      { name: 'DAP Fertilizer', quantity: 1, price: 650 },
-    ],
-  },
-  {
-    id: 'ORD-10294',
-    customerName: 'Suresh Anna',
-    address: 'Madurai, Tamil Nadu',
-    phone: '9876543211',
-    total: 2700,
-    status: 'Pending',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    items: [
-      { name: 'Potash', quantity: 3, price: 900 },
-    ],
-  },
-  {
-    id: 'ORD-10295',
-    customerName: 'Murugan',
-    address: 'Avadi',
-    phone: '9876543212',
-    total: 450,
-    status: 'Pending',
-    createdAt: new Date(Date.now() - 172800000).toISOString(),
-    items: [
-      { name: 'Organic Compost', quantity: 1, price: 450 },
-    ],
-  },
-  {
-    id: 'ORD-10296',
-    customerName: 'Karthik',
-    address: 'Trichy',
-    phone: '9876543213',
-    total: 1040,
-    status: 'Pending',
-    createdAt: new Date(Date.now() - 259200000).toISOString(),
-    items: [
-      { name: 'Bio Fertilizer', quantity: 2, price: 520 },
-    ],
-  },
-  {
-    id: 'ORD-10297',
-    customerName: 'Ramesh',
-    address: 'Coimbatore',
-    phone: '9876543214',
-    total: 1300,
-    status: 'Pending',
-    createdAt: new Date(Date.now() - 345600000).toISOString(),
-    items: [
-      { name: 'Urea Fertilizer', quantity: 2, price: 650 },
-    ],
-  }
-];
+interface ApiOrder {
+  orderId: string;
+  customerId: string;
+  items: { productName: string; quantity: number; subtotal: string }[];
+  totalAmount: string;
+  status: string;
+  address: string;
+  createdAt: string;
+}
+
+const STATUS_COLOR: Record<string, string> = {
+  PENDING: '#e67e22', CONFIRMED: '#2980b9', SHIPPED: '#8e44ad',
+  DELIVERED: '#27ae60', CANCELLED: '#e74c3c',
+};
+const FILTERS = ['All', 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
 
 export const OrderListScreen = ({ navigation }: any) => {
-  const [orders] = useState(DUMMY_ORDERS);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [orders,      setOrders]      = useState<ApiOrder[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState<string | null>(null);
+  const [filter,      setFilter]      = useState('All');
+  const [nextCursor,  setNextCursor]  = useState<string | undefined>();
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const visibleOrders = useMemo(
-    () => orders.slice(0, visibleCount),
-    [orders, visibleCount],
-  );
-  const handleEndReached = useCallback(() => {
-    setVisibleCount(c => Math.min(c + PAGE_SIZE, orders.length));
-  }, [orders.length]);
+  const fetchOrders = useCallback(async (cursor?: string) => {
+    if (cursor) setLoadingMore(true); else setLoading(true);
+    try {
+      const path = cursor ? `/orders?cursor=${cursor}` : '/orders';
+      const res  = await api.get<{ items: ApiOrder[]; nextCursor?: string }>(path);
+      setOrders(prev => cursor ? [...prev, ...res.items] : res.items);
+      setNextCursor(res.nextCursor);
+      setError(null);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load orders');
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, []);
 
-  const renderOrderItem = useCallback(({ item }: { item: any }) => {
-    return (
-      <TouchableOpacity 
-        style={styles.card} 
-        onPress={() => navigation.navigate('OrderDetails', { order: item })}
-        activeOpacity={0.9}
-      >
-        <View style={styles.cardHeader}>
-          <View style={styles.headerRow}>
-            <View style={styles.idContainer}>
-              <Text style={styles.orderId}>{item.id}</Text>
-            </View>
-            <View style={[styles.statusBadge, { backgroundColor: '#FFF8E1' }]}>
-              <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
-            </View>
-          </View>
-          
-          <View style={styles.customerRow}>
-            <User size={16} color="#666" style={styles.icon} />
-            <Text style={styles.customerName}>{item.customerName}</Text>
-          </View>
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
-          <View style={styles.infoRow}>
-            <MapPin size={16} color="#666" style={styles.icon} />
-            <Text style={styles.address} numberOfLines={1}>{item.address}</Text>
-          </View>
+  const displayed = filter === 'All' ? orders : orders.filter(o => o.status === filter);
+
+  const renderItem = useCallback(({ item }: { item: ApiOrder }) => (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => navigation.navigate('OrderDetails', { orderId: item.orderId, onUpdate: fetchOrders })}
+    >
+      <View style={styles.row}>
+        <Text style={styles.orderId}>#{item.orderId.slice(-8).toUpperCase()}</Text>
+        <View style={[styles.badge, { backgroundColor: (STATUS_COLOR[item.status] ?? '#666') + '20' }]}>
+          <Text style={[styles.badgeText, { color: STATUS_COLOR[item.status] ?? '#666' }]}>{item.status}</Text>
         </View>
+      </View>
+      <Text style={styles.items} numberOfLines={1}>
+        {item.items.map(i => `${i.quantity}× ${i.productName}`).join(', ')}
+      </Text>
+      <View style={styles.row}>
+        <Text style={styles.total}>₹{Number(item.totalAmount).toFixed(2)}</Text>
+        <Text style={styles.date}>{item.createdAt.split('T')[0]}</Text>
+      </View>
+    </TouchableOpacity>
+  ), [navigation, fetchOrders]);
 
-        <View style={styles.divider} />
-
-        <View style={styles.cardFooter}>
-          <View style={styles.footerItem}>
-            <Package size={16} color="#666" style={styles.icon} />
-            <Text style={styles.footerText}>{item.items.length} Items</Text>
-          </View>
-          <View style={styles.footerItem}>
-            <Calendar size={16} color="#666" style={styles.icon} />
-            <Text style={styles.footerText}>{new Date(item.createdAt).toLocaleDateString()}</Text>
-          </View>
-          <Text style={styles.totalAmount}>₹{item.total.toFixed(2)}</Text>
-          <ChevronRight size={20} color="#CCC" style={{ marginLeft: 8 }} />
-        </View>
-      </TouchableOpacity>
-    );
-  }, [navigation]);
+  if (loading) return <LoadingState />;
+  if (error)   return <ErrorState error={error} />;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.filterScroll}>
+        {FILTERS.map(f => (
+          <TouchableOpacity
+            key={f}
+            style={[styles.filterBtn, filter === f && styles.filterBtnActive]}
+            onPress={() => setFilter(f)}
+          >
+            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
       <FlatList
-        data={visibleOrders}
-        keyExtractor={(item) => item.id}
-        renderItem={renderOrderItem}
-        contentContainerStyle={styles.listContent}
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
-        windowSize={10}
-        removeClippedSubviews={Platform.OS === 'android'}
-        onEndReached={handleEndReached}
+        data={displayed}
+        keyExtractor={i => i.orderId}
+        contentContainerStyle={styles.list}
+        renderItem={renderItem}
+        onEndReached={() => nextCursor && !loadingMore && fetchOrders(nextCursor)}
         onEndReachedThreshold={0.4}
+        removeClippedSubviews={Platform.OS === 'android'}
+        ListEmptyComponent={<EmptyState message="No orders found" />}
       />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F7FA',
-  },
-  listContent: {
-    padding: SPACING.md,
-    paddingBottom: 40,
-  },
-  card: {
-    backgroundColor: '#FFF',
-    borderRadius: BORDER_RADIUS.lg,
-    marginBottom: SPACING.md,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    overflow: 'hidden',
-  },
-  cardHeader: {
-    padding: SPACING.md,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  idContainer: {
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  orderId: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#2E7D32',
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#F57F17',
-  },
-  customerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  customerName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  icon: {
-    marginRight: 6,
-  },
-  address: {
-    fontSize: 13,
-    color: '#666',
-    flex: 1,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#F0F0F0',
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-    backgroundColor: '#FAFAFA',
-  },
-  footerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  footerText: {
-    fontSize: 12,
-    color: '#666',
-  },
-  totalAmount: {
-    flex: 1,
-    textAlign: 'right',
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
+  safe:            { flex: 1, backgroundColor: COLORS.background },
+  filterScroll:    { flexDirection: 'row', flexWrap: 'wrap', padding: SPACING.sm, gap: 6 },
+  filterBtn:       { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
+  filterBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  filterText:      { fontSize: 12, color: COLORS.text, fontWeight: '500' },
+  filterTextActive:{ color: '#fff' },
+  list:            { paddingHorizontal: SPACING.md, paddingBottom: SPACING.md },
+  card:            { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.sm, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2 },
+  row:             { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  orderId:         { fontSize: 15, fontWeight: 'bold', color: COLORS.text, fontFamily: 'monospace' },
+  badge:           { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  badgeText:       { fontSize: 11, fontWeight: 'bold' },
+  items:           { fontSize: 13, color: COLORS.textSecondary, marginBottom: 8 },
+  total:           { fontSize: 16, fontWeight: 'bold', color: COLORS.primary },
+  date:            { fontSize: 12, color: COLORS.textSecondary },
 });

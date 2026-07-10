@@ -1,14 +1,25 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
-import { cropStore } from './store';
 import { Card } from '../../components/Card';
 import { IndianRupee, PieChart, TrendingDown, ArrowRight, ArrowLeft } from 'lucide-react-native';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../store';
 
 export const ExpenseSummaryScreen = ({ route, navigation }: any) => {
   const { cropCycleId } = route.params;
-  const cycle = cropStore.getCropCycleById(cropCycleId);
-  const totalExpense = cropStore.getTotalExpense(cropCycleId);
+
+  const cycle = useSelector((state: RootState) =>
+    state.crop.cropCycles.find(cc => cc.id === cropCycleId)
+  );
+  const records = useSelector((state: RootState) =>
+    state.crop.recordsByCycleId[cropCycleId] ?? []
+  );
+
+  const totalExpense = useMemo(
+    () => records.reduce((sum, r) => sum + (r.expense || 0), 0),
+    [records],
+  );
 
   if (!cycle) return <View style={styles.container}><Text>Cycle not found</Text></View>;
 
@@ -30,7 +41,7 @@ export const ExpenseSummaryScreen = ({ route, navigation }: any) => {
               <Text style={styles.cropName}>{cycle.cropName}</Text>
               <Text style={styles.startDate}>Started: {cycle.startDate}</Text>
           </View>
-          
+
           <View style={styles.divider} />
 
           <View style={styles.totalRow}>
@@ -46,8 +57,8 @@ export const ExpenseSummaryScreen = ({ route, navigation }: any) => {
 
       <View style={styles.actionSection}>
           <Text style={styles.sectionTitle}>Analytics</Text>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
               style={styles.actionCard}
               onPress={() => navigation.navigate('ExpenseBreakdown', { cropCycleId })}
           >

@@ -1,164 +1,87 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Alert } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
+import { api } from '../../../services/api';
 
 export const AddStockScreen = ({ navigation }: any) => {
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState('');
-  const [price, setPrice] = useState('');
-  const [stock, setStock] = useState('');
+  const [name,        setName]        = useState('');
+  const [category,    setCategory]    = useState('Fertilizers');
+  const [price,       setPrice]       = useState('');
+  const [unit,        setUnit]        = useState('kg');
+  const [stock,       setStock]       = useState('');
   const [description, setDescription] = useState('');
+  const [loading,     setLoading]     = useState(false);
 
-  const handleSubmit = () => {
-    if (!name || !category || !price || !stock) {
-      Alert.alert('Error', 'Please fill all required fields');
+  const handleSave = async () => {
+    if (!name.trim() || !price || !stock) {
+      Alert.alert('Error', 'Name, price, and stock quantity are required');
       return;
     }
-
-    const newProduct = {
-      id: Math.random().toString(),
-      name,
-      category,
-      price: parseFloat(price),
-      stock: parseInt(stock, 10),
-      description,
-    };
-
-    Alert.alert('Success', 'Stock added successfully', [
-      { text: 'OK', onPress: () => navigation.navigate('ManageStock', { newProduct }) }
-    ]);
+    setLoading(true);
+    try {
+      await api.post('/products', {
+        name:        name.trim(),
+        category:    category.trim(),
+        price:       Number(price),
+        unit:        unit.trim() || 'kg',
+        stock:       Number(stock),
+        description: description.trim(),
+        isActive:    true,
+      });
+      Alert.alert('Success', 'Product added to inventory');
+      navigation.goBack();
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'Failed to add product');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.card}>
-          <Text style={styles.title}>Add New Inventory</Text>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Product Name *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Urea Fertilizer"
-              value={name}
-              onChangeText={setName}
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Category *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Fertilizers"
-              value={category}
-              onChangeText={setCategory}
-            />
-          </View>
-
-          <View style={styles.row}>
-            <View style={[styles.field, { flex: 1, marginRight: SPACING.md }]}>
-              <Text style={styles.label}>Price (₹) *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="0.00"
-                keyboardType="numeric"
-                value={price}
-                onChangeText={setPrice}
-              />
-            </View>
-
-            <View style={[styles.field, { flex: 1 }]}>
-              <Text style={styles.label}>Stock (bags) *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="0"
-                keyboardType="numeric"
-                value={stock}
-                onChangeText={setStock}
-              />
-            </View>
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Description</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Enter product details..."
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              value={description}
-              onChangeText={setDescription}
-            />
-          </View>
-
-          <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-            <Text style={styles.buttonText}>Submit Stock</Text>
-          </TouchableOpacity>
+    <SafeAreaView style={styles.safe}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <View style={styles.field}>
+          <Text style={styles.label}>Product Name *</Text>
+          <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="e.g. Urea Fertilizer" />
         </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Category</Text>
+          <TextInput style={styles.input} value={category} onChangeText={setCategory} placeholder="e.g. Fertilizers, Pesticides" />
+        </View>
+        <View style={styles.row}>
+          <View style={[styles.field, { flex: 1, marginRight: 8 }]}>
+            <Text style={styles.label}>Price (₹) *</Text>
+            <TextInput style={styles.input} value={price} onChangeText={setPrice} placeholder="0.00" keyboardType="decimal-pad" />
+          </View>
+          <View style={[styles.field, { flex: 1 }]}>
+            <Text style={styles.label}>Unit</Text>
+            <TextInput style={styles.input} value={unit} onChangeText={setUnit} placeholder="kg / litre / bag" />
+          </View>
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Stock Quantity *</Text>
+          <TextInput style={styles.input} value={stock} onChangeText={setStock} placeholder="Available quantity" keyboardType="number-pad" />
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Description</Text>
+          <TextInput style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} placeholder="Product details..." multiline numberOfLines={3} textAlignVertical="top" />
+        </View>
+        <TouchableOpacity style={[styles.button, loading && { opacity: 0.7 }]} onPress={handleSave} disabled={loading}>
+          <Text style={styles.buttonText}>{loading ? 'Adding...' : 'Add to Inventory'}</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F7FA',
-  },
-  content: {
-    padding: SPACING.md,
-  },
-  card: {
-    backgroundColor: '#FFF',
-    padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: SPACING.xl,
-    textAlign: 'center',
-  },
-  field: {
-    marginBottom: SPACING.md,
-  },
-  row: {
-    flexDirection: 'row',
-  },
-  label: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 6,
-    fontWeight: '500',
-  },
-  input: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: BORDER_RADIUS.md,
-    padding: 12,
-    fontSize: 15,
-  },
-  textArea: {
-    height: 100,
-  },
-  button: {
-    backgroundColor: COLORS.primary,
-    padding: 16,
-    borderRadius: BORDER_RADIUS.md,
-    alignItems: 'center',
-    marginTop: SPACING.md,
-  },
-  buttonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  safe:       { flex: 1, backgroundColor: COLORS.background },
+  container:  { padding: SPACING.lg },
+  field:      { marginBottom: SPACING.lg },
+  row:        { flexDirection: 'row' },
+  label:      { fontSize: 14, color: COLORS.text, marginBottom: SPACING.xs, fontWeight: '600' },
+  input:      { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, fontSize: 16, color: COLORS.text },
+  textArea:   { height: 80 },
+  button:     { backgroundColor: COLORS.primary, padding: SPACING.md, borderRadius: BORDER_RADIUS.md, alignItems: 'center', marginTop: SPACING.md },
+  buttonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
 });

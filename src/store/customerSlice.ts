@@ -13,22 +13,20 @@ export interface CustomerState {
   customers: Customer[];
 }
 
-const initialState: CustomerState = {
-  customers: [
-    { id: 'c1', name: 'Murugan', village: 'Avadi', phone: '9876543210', email: 'murugan@example.com', landsCount: 2 },
-    { id: 'c2', name: 'Suresh Anna', village: 'Madurai', phone: '9876543211', email: 'suresh@example.com', landsCount: 1 },
-  ],
-};
+const initialState: CustomerState = { customers: [] };
 
 const customerSlice = createSlice({
   name: 'customer',
   initialState,
   reducers: {
-    addCustomer: (state, action: PayloadAction<Customer>) => {
-      state.customers.push(action.payload);
+    setCustomers(state, action: PayloadAction<Customer[]>) {
+      state.customers = action.payload;
+    },
+    addCustomer(state, action: PayloadAction<Customer>) {
+      state.customers.unshift(action.payload);
     },
   },
 });
 
-export const { addCustomer } = customerSlice.actions;
+export const { setCustomers, addCustomer } = customerSlice.actions;
 export default customerSlice.reducer;

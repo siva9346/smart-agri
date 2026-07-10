@@ -1,297 +1,108 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Platform } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
-import { User, MapPin, Phone, CheckCircle, Plus, ChevronRight } from 'lucide-react-native';
-import { useSelector } from 'react-redux';
-import { RootState } from '../../../store';
+import { api } from '../../../services/api';
+import { LoadingState, EmptyState, ErrorState } from '../../../components/States';
+import { UserPlus } from 'lucide-react-native';
 
-const PAGE_SIZE = 20;
+interface ApiCustomer {
+  userId: string;
+  name: string;
+  phone: string;
+  village: string;
+  district: string;
+  createdAt: string;
+}
 
-const INITIAL_CUSTOMERS = [
-  {
-    id: '1',
-    name: 'Murugan',
-    village: 'Avadi',
-    phone: '9876543210',
-    email: 'murugan@example.com',
-    landsCount: 2,
-    lands: [
-      { 
-        id: 'L1', 
-        size: '2.5 acres', 
-        soil: 'Black soil', 
-        currentCrop: 'Paddy', 
-        prevCrops: 'Groundnut, Cotton', 
-        fertilizerUsed: 'Urea, DAP', 
-        manureUsed: 'Cow dung',
-        cropCycles: [
-          { cropName: 'Paddy', records: [{ expense: 12000, stage: 'planting', date: '2026-03-01' }, { expense: 6500, stage: 'fertilizer', date: '2026-03-15' }] },
-          { cropName: 'Groundnut', records: [{ expense: 15000, stage: 'harvesting', date: '2025-11-20' }] }
-        ]
-      },
-      { 
-        id: 'L2', 
-        size: '1.2 acres', 
-        soil: 'Red soil', 
-        currentCrop: 'Banana', 
-        prevCrops: 'None', 
-        fertilizerUsed: 'Potash', 
-        manureUsed: 'Compost',
-        cropCycles: [
-          { cropName: 'Banana', records: [{ expense: 8000, stage: 'cleaning', date: '2026-02-10' }] }
-        ]
-      },
-    ]
-  },
-  {
-    id: '2',
-    name: 'Suresh Anna',
-    village: 'Madurai',
-    phone: '9876543211',
-    email: 'suresh@example.com',
-    landsCount: 1,
-    lands: [
-      { 
-        id: 'L3', 
-        size: '5 acres', 
-        soil: 'Alluvial soil', 
-        currentCrop: 'Sugarcane', 
-        prevCrops: 'Paddy', 
-        fertilizerUsed: 'Urea', 
-        manureUsed: 'Poultry manure',
-        cropCycles: [
-          { cropName: 'Sugarcane', records: [{ expense: 25000, stage: 'planting', date: '2026-01-05' }] }
-        ]
-      }
-    ]
-  },
-  {
-    id: '3',
-    name: 'Karthik',
-    village: 'Trichy',
-    phone: '9876543212',
-    email: 'karthik@example.com',
-    landsCount: 3,
-    lands: [
-      { id: 'L4', size: '1 acre', soil: 'Red soil', currentCrop: 'Tomato', prevCrops: 'Chilli', fertilizerUsed: 'Bio Fertilizer', manureUsed: 'Compost' }
-    ]
-  },
-  {
-    id: '4',
-    name: 'Ramesh',
-    village: 'Coimbatore',
-    phone: '9876543213',
-    email: 'ramesh@example.com',
-    landsCount: 1,
-    lands: [
-      { id: 'L5', size: '3 acres', soil: 'Black soil', currentCrop: 'Cotton', prevCrops: 'Maize', fertilizerUsed: 'DAP', manureUsed: 'None' }
-    ]
-  },
-  {
-    id: '5',
-    name: 'Velu',
-    village: 'Tirunelveli',
-    phone: '9876543214',
-    email: 'velu@example.com',
-    landsCount: 2,
-    lands: [
-      { id: 'L6', size: '4 acres', soil: 'Sandy soil', currentCrop: 'Groundnut', prevCrops: 'Sesame', fertilizerUsed: 'Urea', manureUsed: 'Cow dung' }
-    ]
-  },
-];
+export const CustomerListScreen = ({ navigation }: any) => {
+  const [customers,   setCustomers]   = useState<ApiCustomer[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState<string | null>(null);
+  const [search,      setSearch]      = useState('');
+  const [nextCursor,  setNextCursor]  = useState<string | undefined>();
+  const [loadingMore, setLoadingMore] = useState(false);
 
-export const CustomerListScreen = ({ navigation, route }: any) => {
-  const customers = useSelector((state: RootState) => state.customer.customers);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const fetchCustomers = useCallback(async (cursor?: string) => {
+    if (cursor) setLoadingMore(true); else setLoading(true);
+    try {
+      const path = cursor ? `/farmers?cursor=${cursor}` : '/farmers';
+      const res  = await api.get<{ items: ApiCustomer[]; nextCursor?: string }>(path);
+      setCustomers(prev => cursor ? [...prev, ...res.items] : res.items);
+      setNextCursor(res.nextCursor);
+      setError(null);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load customers');
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, []);
 
-  const visibleCustomers = useMemo(
-    () => customers.slice(0, visibleCount),
-    [customers, visibleCount],
+  useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
+
+  const filtered = customers.filter(c =>
+    !search ||
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.phone.includes(search)
   );
-  const handleEndReached = useCallback(() => {
-    setVisibleCount(c => Math.min(c + PAGE_SIZE, customers.length));
-  }, [customers.length]);
 
-  const renderCustomerItem = useCallback(({ item }: { item: any }) => (
-    <TouchableOpacity 
+  const renderItem = useCallback(({ item }: { item: ApiCustomer }) => (
+    <TouchableOpacity
       style={styles.card}
-      activeOpacity={0.9}
-      onPress={() => navigation.navigate('CustomerDetails', { customer: item })}
+      onPress={() => navigation.navigate('CustomerDetails', { customerId: item.userId })}
     >
-      <View style={styles.cardHeader}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{item.name.charAt(0)}</Text>
-        </View>
-        <View style={styles.infoArea}>
-          <Text style={styles.name}>{item.name}</Text>
-          <View style={styles.row}>
-            <MapPin size={14} color="#666" style={{ marginRight: 4 }} />
-            <Text style={styles.detailText}>{item.village}</Text>
-          </View>
-        </View>
-        <ChevronRight size={20} color="#CCC" />
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText}>{item.name.charAt(0).toUpperCase()}</Text>
       </View>
-
-      <View style={styles.divider} />
-
-      <View style={styles.cardFooter}>
-        <View style={styles.footerItem}>
-          <Phone size={14} color="#666" style={{ marginRight: 6 }} />
-          <Text style={styles.phoneText}>{item.phone}</Text>
-        </View>
-        <View style={styles.landBadge}>
-          <Text style={styles.landBadgeText}>
-            {item.landsCount} {item.landsCount === 1 ? 'Land' : 'Lands'}
-          </Text>
-        </View>
+      <View style={styles.info}>
+        <Text style={styles.name}>{item.name}</Text>
+        <Text style={styles.detail}>{item.phone}</Text>
+        {item.village ? <Text style={styles.detail}>{item.village}</Text> : null}
       </View>
     </TouchableOpacity>
   ), [navigation]);
 
+  if (loading) return <LoadingState />;
+  if (error)   return <ErrorState error={error} />;
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.headerArea}>
-        <Text style={styles.title}>Farmers Directory</Text>
-        <TouchableOpacity 
-          style={styles.addBtn}
-          onPress={() => navigation.navigate('CreateCustomer')}
-        >
-          <Plus size={20} color="#FFF" />
-          <Text style={styles.addBtnText}>Add</Text>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <View style={styles.searchRow}>
+        <TextInput
+          style={styles.search}
+          placeholder="Search by name or phone..."
+          value={search}
+          onChangeText={setSearch}
+        />
+        <TouchableOpacity style={styles.addBtn} onPress={() => navigation.navigate('CreateCustomer')}>
+          <UserPlus size={20} color="#fff" />
         </TouchableOpacity>
       </View>
-
       <FlatList
-        data={visibleCustomers}
-        keyExtractor={item => item.id}
-        renderItem={renderCustomerItem}
-        contentContainerStyle={styles.listContent}
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
-        windowSize={10}
-        removeClippedSubviews={Platform.OS === 'android'}
-        onEndReached={handleEndReached}
+        data={filtered}
+        keyExtractor={i => i.userId}
+        contentContainerStyle={styles.list}
+        renderItem={renderItem}
+        onEndReached={() => nextCursor && !loadingMore && fetchCustomers(nextCursor)}
         onEndReachedThreshold={0.4}
+        removeClippedSubviews={Platform.OS === 'android'}
+        ListEmptyComponent={<EmptyState message="No customers found" />}
       />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F7FA',
-  },
-  headerArea: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SPACING.lg,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEE',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: BORDER_RADIUS.md,
-  },
-  addBtnText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-    marginLeft: 4,
-  },
-  listContent: {
-    padding: SPACING.md,
-  },
-  card: {
-    backgroundColor: '#FFF',
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#E8F5E9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  avatarText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
-  infoArea: {
-    flex: 1,
-  },
-  name: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  detailText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#EEE',
-    marginVertical: SPACING.md,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  footerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 14,
-    color: '#555',
-  },
-  phoneText: {
-    fontSize: 13,
-    color: '#666',
-  },
-  landBadge: {
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#C8E6C9',
-  },
-  landBadgeText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
+  safe:       { flex: 1, backgroundColor: COLORS.background },
+  searchRow:  { flexDirection: 'row', padding: SPACING.md, gap: 8 },
+  search:     { flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, paddingHorizontal: SPACING.md, paddingVertical: 10, fontSize: 14, backgroundColor: COLORS.surface },
+  addBtn:     { backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.md, paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center' },
+  list:       { paddingHorizontal: SPACING.md, paddingBottom: SPACING.md },
+  card:       { flexDirection: 'row', backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.sm, alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2 },
+  avatar:     { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', marginRight: SPACING.md },
+  avatarText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  info:       { flex: 1 },
+  name:       { fontSize: 16, fontWeight: 'bold', color: COLORS.text },
+  detail:     { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
 });

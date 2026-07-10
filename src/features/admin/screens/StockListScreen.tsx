@@ -1,184 +1,101 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
 import { Edit2, Package, Plus } from 'lucide-react-native';
+import { api } from '../../../services/api';
+import { LoadingState, EmptyState, ErrorState } from '../../../components/States';
 
-const INITIAL_STOCK = [
-  { id: '1', name: 'Urea Fertilizer', category: 'Fertilizers', price: 650, stock: 120, description: 'High nitrogen fertilizer for leafy green growth.' },
-  { id: '2', name: 'DAP Fertilizer', category: 'Fertilizers', price: 1350, stock: 80, description: 'Phosphate rich fertilizer for roots.' },
-  { id: '3', name: 'Potash', category: 'Fertilizers', price: 900, stock: 60, description: 'Enhances overall plant disease resistance.' },
-  { id: '4', name: 'Organic Compost', category: 'Organic', price: 450, stock: 200, description: 'Natural compost for soil enrichment.' },
-  { id: '5', name: 'Bio Fertilizer', category: 'Organic', price: 520, stock: 150, description: 'Bio-based nutrients for sustainable farming.' },
-  { id: '6', name: 'Zinc Sulphate', category: 'Micronutrients', price: 300, stock: 45, description: 'Prevents zinc deficiency in crops.' },
-];
+interface ApiProduct {
+  productId: string;
+  name: string;
+  category: string;
+  price: number;
+  stock: number;
+  unit: string;
+  description: string;
+  isActive: boolean;
+}
 
-export const StockListScreen = ({ navigation, route }: any) => {
-  const [inventory, setInventory] = useState(INITIAL_STOCK);
+export const StockListScreen = ({ navigation }: any) => {
+  const [products,    setProducts]    = useState<ApiProduct[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState<string | null>(null);
+  const [nextCursor,  setNextCursor]  = useState<string | undefined>();
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  // Example of handling return params for local state updates
-  React.useEffect(() => {
-    if (route.params?.newProduct) {
-      setInventory(prev => [route.params.newProduct, ...prev]);
-      navigation.setParams({ newProduct: undefined }); // clear param
+  const fetchProducts = useCallback(async (cursor?: string) => {
+    if (cursor) setLoadingMore(true); else setLoading(true);
+    try {
+      const path = cursor ? `/products?cursor=${cursor}` : '/products';
+      const res  = await api.get<{ items: ApiProduct[]; nextCursor?: string }>(path);
+      setProducts(prev => cursor ? [...prev, ...res.items] : res.items);
+      setNextCursor(res.nextCursor);
+      setError(null);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load products');
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
     }
-    if (route.params?.updatedProduct) {
-      setInventory(prev => prev.map(p => p.id === route.params.updatedProduct.id ? route.params.updatedProduct : p));
-      navigation.setParams({ updatedProduct: undefined }); // clear param
-    }
-  }, [route.params?.newProduct, route.params?.updatedProduct]);
+  }, []);
 
-  const renderStockItem = ({ item }: { item: any }) => (
+  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  const renderItem = useCallback(({ item }: { item: ApiProduct }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <View style={styles.titleArea}>
-          <Text style={styles.productName}>{item.name}</Text>
-          <Text style={styles.category}>{item.category}</Text>
-        </View>
-        <TouchableOpacity 
-          style={styles.editBtn}
-          onPress={() => navigation.navigate('EditStock', { product: item })}
-        >
-          <Edit2 size={16} color={COLORS.primary} />
+        <Package size={20} color={COLORS.primary} />
+        <Text style={styles.productName}>{item.name}</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('EditStock', { product: item })}>
+          <Edit2 size={18} color={COLORS.textSecondary} />
         </TouchableOpacity>
       </View>
-
-      <Text style={styles.description} numberOfLines={2}>{item.description}</Text>
-      
-      <View style={styles.divider} />
-      
-      <View style={styles.cardFooter}>
-        <Text style={styles.price}>₹{item.price}</Text>
-        <View style={styles.stockBadge}>
-          <Package size={14} color="#555" style={{ marginRight: 4 }} />
-          <Text style={styles.stockText}>{item.stock} bags</Text>
+      <Text style={styles.category}>{item.category}</Text>
+      <View style={styles.row}>
+        <Text style={styles.price}>₹{item.price}/{item.unit}</Text>
+        <View style={[styles.stockBadge, { backgroundColor: item.stock < 10 ? '#FFEBEE' : '#E8F5E9' }]}>
+          <Text style={[styles.stockText, { color: item.stock < 10 ? '#C62828' : '#2E7D32' }]}>
+            Stock: {item.stock}
+          </Text>
         </View>
       </View>
     </View>
-  );
+  ), [navigation]);
+
+  if (loading) return <LoadingState />;
+  if (error)   return <ErrorState error={error} />;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.headerArea}>
-        <Text style={styles.title}>Inventory</Text>
-        <TouchableOpacity 
-          style={styles.addBtn}
-          onPress={() => navigation.navigate('AddStock')}
-        >
-          <Plus size={20} color="#FFF" />
-          <Text style={styles.addBtnText}>Add Stock</Text>
-        </TouchableOpacity>
-      </View>
-
+    <SafeAreaView style={styles.safe}>
+      <TouchableOpacity style={styles.addBtn} onPress={() => navigation.navigate('AddStock')}>
+        <Plus size={20} color="#fff" />
+        <Text style={styles.addBtnText}>Add Product</Text>
+      </TouchableOpacity>
       <FlatList
-        data={inventory}
-        keyExtractor={item => item.id}
-        renderItem={renderStockItem}
-        contentContainerStyle={styles.listContent}
+        data={products}
+        keyExtractor={i => i.productId}
+        contentContainerStyle={styles.list}
+        renderItem={renderItem}
+        onEndReached={() => nextCursor && !loadingMore && fetchProducts(nextCursor)}
+        onEndReachedThreshold={0.4}
+        removeClippedSubviews={Platform.OS === 'android'}
+        ListEmptyComponent={<EmptyState message="No products found" />}
       />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F7FA',
-  },
-  headerArea: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SPACING.lg,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEE',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: BORDER_RADIUS.md,
-  },
-  addBtnText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-    marginLeft: 4,
-  },
-  listContent: {
-    padding: SPACING.md,
-  },
-  card: {
-    backgroundColor: '#FFF',
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  titleArea: {
-    flex: 1,
-  },
-  productName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  category: {
-    fontSize: 12,
-    color: '#888',
-    marginTop: 2,
-  },
-  editBtn: {
-    padding: 6,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 20,
-  },
-  description: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: SPACING.sm,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#EEE',
-    marginVertical: SPACING.md,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  price: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
-  stockBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF8E1',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  stockText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#555',
-  },
+  safe:        { flex: 1, backgroundColor: COLORS.background },
+  addBtn:      { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, margin: SPACING.md, padding: SPACING.md, borderRadius: BORDER_RADIUS.md, justifyContent: 'center', gap: 8 },
+  addBtnText:  { color: '#fff', fontWeight: 'bold', fontSize: 15 },
+  list:        { paddingHorizontal: SPACING.md, paddingBottom: SPACING.md },
+  card:        { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.sm, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2 },
+  cardHeader:  { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.xs, gap: 8 },
+  productName: { flex: 1, fontSize: 16, fontWeight: 'bold', color: COLORS.text },
+  category:    { fontSize: 13, color: COLORS.textSecondary, marginBottom: SPACING.sm },
+  row:         { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  price:       { fontSize: 16, fontWeight: 'bold', color: COLORS.primary },
+  stockBadge:  { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  stockText:   { fontSize: 13, fontWeight: '600' },
 });

@@ -1,14 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Product, UserRole } from '../../../types/product';
+import { UserRole } from '../../../types/product';
+import { ApiProduct } from '../services/productService';
 
 interface ProductCardProps {
-  product: Product;
+  product: ApiProduct;
   role: UserRole;
-  onViewDetails: (product: Product) => void;
-  onAddToCart?: (product: Product) => void;
-  onEdit?: (product: Product) => void;
-  onUpdateStock?: (product: Product) => void;
+  onViewDetails: (product: ApiProduct) => void;
+  onAddToCart?: (product: ApiProduct) => void;
+  onEdit?: (product: ApiProduct) => void;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
@@ -17,9 +17,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onViewDetails,
   onAddToCart,
   onEdit,
-  onUpdateStock,
 }) => {
-  const isOutofStock = product.stock <= 0;
+  const isOutOfStock = product.stock <= 0;
 
   return (
     <View style={styles.card}>
@@ -35,8 +34,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <View style={styles.footer}>
         <View>
           <Text style={styles.price}>₹{product.price.toFixed(2)}</Text>
-          <Text style={[styles.stock, isOutofStock && styles.outOfStock]}>
-            {isOutofStock ? 'Out of Stock' : `Stock: ${product.stock}`}
+          {product.unit ? (
+            <Text style={styles.unit}>per {product.unit}</Text>
+          ) : null}
+          <Text style={[styles.stock, isOutOfStock && styles.outOfStock]}>
+            {isOutOfStock ? 'Out of Stock' : `Stock: ${product.stock}`}
           </Text>
         </View>
 
@@ -50,28 +52,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 <Text style={styles.secondaryButtonText}>Details</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.button, styles.primaryButton, isOutofStock && styles.disabledButton]}
+                style={[styles.button, styles.primaryButton, isOutOfStock && styles.disabledButton]}
                 onPress={() => onAddToCart?.(product)}
-                disabled={isOutofStock}
+                disabled={isOutOfStock}
               >
                 <Text style={styles.primaryButtonText}>Add to Cart</Text>
               </TouchableOpacity>
             </>
           ) : (
-            <>
-              <TouchableOpacity
-                style={[styles.button, styles.secondaryButton]}
-                onPress={() => onEdit?.(product)}
-              >
-                <Text style={styles.secondaryButtonText}>Edit</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, styles.primaryButton]}
-                onPress={() => onUpdateStock?.(product)}
-              >
-                <Text style={styles.primaryButtonText}>Stock +</Text>
-              </TouchableOpacity>
-            </>
+            <TouchableOpacity
+              style={[styles.button, styles.secondaryButton]}
+              onPress={() => onEdit?.(product)}
+            >
+              <Text style={styles.secondaryButtonText}>Edit</Text>
+            </TouchableOpacity>
           )}
         </View>
       </View>
@@ -127,7 +121,12 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#2e7d32', // Green for price
+    color: '#2e7d32',
+  },
+  unit: {
+    fontSize: 11,
+    color: '#888',
+    marginTop: 1,
   },
   stock: {
     fontSize: 12,

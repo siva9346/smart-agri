@@ -1,211 +1,158 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
-import { MapPin, Phone, User, Calendar, MessageSquare, CheckCircle, ArrowLeft } from 'lucide-react-native';
+import { MapPin, User, Calendar } from 'lucide-react-native';
+import { api } from '../../../services/api';
+import { LoadingState, ErrorState } from '../../../components/States';
 
-export const OrderDetailsScreen = ({ route, navigation }: any) => {
-  const { order } = route.params;
+interface ApiOrder {
+  orderId: string;
+  customerId: string;
+  items: { productId: string; productName: string; quantity: number; unitPrice: string; subtotal: string }[];
+  totalAmount: string;
+  status: string;
+  address: string;
+  createdAt: string;
+}
+
+const STATUS_COLOR: Record<string, string> = {
+  PENDING: '#e67e22', CONFIRMED: '#2980b9', SHIPPED: '#8e44ad',
+  DELIVERED: '#27ae60', CANCELLED: '#e74c3c',
+};
+const NEXT_STATUSES: Record<string, string[]> = {
+  PENDING:   ['CONFIRMED', 'CANCELLED'],
+  CONFIRMED: ['SHIPPED', 'CANCELLED'],
+  SHIPPED:   ['DELIVERED', 'CANCELLED'],
+  DELIVERED: [],
+  CANCELLED: [],
+};
+
+export const OrderDetailsScreen = ({ route }: any) => {
+  const { orderId, onUpdate } = route.params;
+  const [order,   setOrder]   = useState<ApiOrder | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<string | null>(null);
+  const [saving,  setSaving]  = useState(false);
+
+  useEffect(() => {
+    api.get<ApiOrder>(`/orders/${orderId}`)
+      .then(setOrder)
+      .catch(err => setError(err?.message ?? 'Failed to load order'))
+      .finally(() => setLoading(false));
+  }, [orderId]);
+
+  const updateStatus = async (status: string) => {
+    if (!order) return;
+    setSaving(true);
+    try {
+      const updated = await api.put<ApiOrder>(`/orders/${orderId}`, { status });
+      setOrder(updated);
+      onUpdate?.();
+      Alert.alert('Updated', `Order status set to ${status}`);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'Failed to update status');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <LoadingState />;
+  if (error || !order) return <ErrorState error={error ?? 'Not found'} />;
+
+  const nextStatuses = NEXT_STATUSES[order.status] ?? [];
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Back Header */}
-      <View style={styles.screenHeader}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <ArrowLeft size={24} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Order Details</Text>
-      </View>
-      <ScrollView contentContainerStyle={styles.content}>
-        
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.headerCard}>
           <View>
             <Text style={styles.orderIdLabel}>ORDER NUMBER</Text>
-            <Text style={styles.orderIdValue}>#{order.id}</Text>
+            <Text style={styles.orderIdValue}>#{order.orderId.slice(-8).toUpperCase()}</Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: '#FFF8E1' }]}>
-            <Text style={styles.statusText}>{order.status.toUpperCase()}</Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Customer Details</Text>
-          <View style={styles.detailRow}>
-            <User size={18} color="#666" style={styles.icon} />
-            <Text style={styles.detailText}>{order.customerName}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <MapPin size={18} color="#666" style={styles.icon} />
-            <Text style={styles.detailText}>{order.address}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Phone size={18} color="#666" style={styles.icon} />
-            <Text style={styles.detailText}>{order.phone}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: (STATUS_COLOR[order.status] ?? '#666') + '20' }]}>
+            <Text style={[styles.statusText, { color: STATUS_COLOR[order.status] ?? '#666' }]}>{order.status}</Text>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Order Items</Text>
-          {order.items.map((item: any, index: number) => (
-            <View key={index} style={styles.itemRow}>
+          <Text style={styles.sectionTitle}>Delivery Info</Text>
+          <View style={styles.infoRow}>
+            <User size={16} color={COLORS.textSecondary} />
+            <Text style={styles.infoText}>Customer ID: {order.customerId.slice(-8).toUpperCase()}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <MapPin size={16} color={COLORS.textSecondary} />
+            <Text style={styles.infoText}>{order.address}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Calendar size={16} color={COLORS.textSecondary} />
+            <Text style={styles.infoText}>{order.createdAt.split('T')[0]}</Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Items</Text>
+          {order.items.map((item, i) => (
+            <View key={i} style={styles.itemRow}>
               <View style={styles.itemInfo}>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemQuantity}>Qty: {item.quantity}</Text>
+                <Text style={styles.itemName}>{item.productName}</Text>
+                <Text style={styles.itemQty}>Qty: {item.quantity} × ₹{Number(item.unitPrice).toFixed(2)}</Text>
               </View>
-              <Text style={styles.itemPrice}>₹{(item.price * item.quantity).toFixed(2)}</Text>
+              <Text style={styles.itemSubtotal}>₹{Number(item.subtotal).toFixed(2)}</Text>
             </View>
           ))}
           <View style={styles.divider} />
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total Amount</Text>
-            <Text style={styles.totalValue}>₹{order.total.toFixed(2)}</Text>
+            <Text style={styles.totalLabel}>Total</Text>
+            <Text style={styles.totalValue}>₹{Number(order.totalAmount).toFixed(2)}</Text>
           </View>
         </View>
 
-        <View style={styles.section}>
-          <View style={styles.detailRow}>
-            <Calendar size={18} color="#666" style={styles.icon} />
-            <Text style={styles.detailText}>Ordered on: {new Date(order.createdAt).toLocaleString()}</Text>
+        {nextStatuses.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Update Status</Text>
+            <View style={styles.statusRow}>
+              {nextStatuses.map(s => (
+                <TouchableOpacity
+                  key={s}
+                  style={[styles.statusBtn, { borderColor: STATUS_COLOR[s] ?? COLORS.border }, saving && { opacity: 0.6 }]}
+                  onPress={() => updateStatus(s)}
+                  disabled={saving}
+                >
+                  <Text style={[styles.statusBtnText, { color: STATUS_COLOR[s] ?? COLORS.text }]}>{s}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
-
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F7FA',
-  },
-  screenHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEE',
-  },
-  backBtn: {
-    marginRight: SPACING.md,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  content: {
-    padding: SPACING.md,
-  },
-  headerCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
-    marginBottom: SPACING.md,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-  },
-  orderIdLabel: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: COLORS.textSecondary,
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  orderIdValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#F57F17',
-  },
-  section: {
-    backgroundColor: '#FFF',
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.lg,
-    marginBottom: SPACING.md,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: SPACING.md,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  icon: {
-    marginRight: 10,
-  },
-  detailText: {
-    fontSize: 15,
-    color: '#444',
-    flex: 1,
-  },
-  itemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  itemInfo: {
-    flex: 1,
-  },
-  itemName: {
-    fontSize: 15,
-    color: '#333',
-    fontWeight: '500',
-  },
-  itemQuantity: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 2,
-  },
-  itemPrice: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#EEE',
-    marginVertical: SPACING.md,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  totalValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
+  safe:          { flex: 1, backgroundColor: COLORS.background },
+  container:     { padding: SPACING.lg },
+  headerCard:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md, padding: SPACING.lg, marginBottom: SPACING.md, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2 },
+  orderIdLabel:  { fontSize: 10, fontWeight: 'bold', color: COLORS.textSecondary, letterSpacing: 1, marginBottom: 4 },
+  orderIdValue:  { fontSize: 20, fontWeight: 'bold', color: COLORS.text, fontFamily: 'monospace' },
+  statusBadge:   { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  statusText:    { fontSize: 13, fontWeight: 'bold' },
+  section:       { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.md, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2 },
+  sectionTitle:  { fontSize: 13, fontWeight: 'bold', color: COLORS.textSecondary, textTransform: 'uppercase', marginBottom: SPACING.sm },
+  infoRow:       { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
+  infoText:      { flex: 1, fontSize: 14, color: COLORS.text },
+  itemRow:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
+  itemInfo:      { flex: 1 },
+  itemName:      { fontSize: 14, fontWeight: '500', color: COLORS.text },
+  itemQty:       { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  itemSubtotal:  { fontSize: 15, fontWeight: 'bold', color: COLORS.text },
+  divider:       { height: 1, backgroundColor: COLORS.border, marginVertical: SPACING.sm },
+  totalRow:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  totalLabel:    { fontSize: 16, fontWeight: 'bold', color: COLORS.text },
+  totalValue:    { fontSize: 18, fontWeight: 'bold', color: COLORS.primary },
+  statusRow:     { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  statusBtn:     { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5, backgroundColor: COLORS.surface },
+  statusBtnText: { fontSize: 13, fontWeight: 'bold' },
 });

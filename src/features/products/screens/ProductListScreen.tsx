@@ -11,37 +11,44 @@ import {
   Platform,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import { Product, UserRole } from '../../../types/product';
-import { productService } from '../services/productService';
+import { UserRole } from '../../../types/product';
+import { ApiProduct, productService } from '../services/productService';
 import { ProductCard } from '../components/ProductCard';
 import { addToCart } from '../../../store/cartSlice';
 import { RootState } from '../../../store';
 
 export const ProductListScreen = ({ navigation, route }: any) => {
-  // Use role from navigation params if provided, otherwise default to 'customer'
   const role: UserRole = route.params?.role || 'customer';
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [products,    setProducts]    = useState<ApiProduct[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [refreshing,  setRefreshing]  = useState(false);
+  const [nextCursor,  setNextCursor]  = useState<string | undefined>();
+  const [loadingMore, setLoadingMore] = useState(false);
   const dispatch = useDispatch();
   const cartCount = useSelector((state: RootState) =>
     state.cart.items.reduce((sum, item) => sum + item.quantity, 0)
   );
 
-  const fetchProducts = useCallback(async () => {
+  const fetchProducts = useCallback(async (cursor?: string) => {
+    if (cursor) { setLoadingMore(true); }
     try {
-      const data = await productService.getProducts();
-      setProducts(data);
-    } catch (error) {
+      const res = await productService.getProducts(cursor);
+      setProducts(prev => cursor ? [...prev, ...res.items] : res.items);
+      setNextCursor(res.nextCursor);
+    } catch {
       Alert.alert('Error', 'Failed to fetch products');
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLoadingMore(false);
     }
   }, []);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
+      setProducts([]);
+      setNextCursor(undefined);
+      setLoading(true);
       fetchProducts();
     });
     return unsubscribe;
@@ -49,24 +56,14 @@ export const ProductListScreen = ({ navigation, route }: any) => {
 
   const onRefresh = () => {
     setRefreshing(true);
+    setProducts([]);
+    setNextCursor(undefined);
     fetchProducts();
   };
 
-  const handleAddToCart = (product: Product) => {
-    dispatch(addToCart({ productId: product.id, name: product.name, price: product.price }));
+  const handleAddToCart = (product: ApiProduct) => {
+    dispatch(addToCart({ productId: product.productId, name: product.name, price: product.price }));
     Alert.alert('Success', `${product.name} added to cart!`);
-  };
-
-  const handleUpdateStock = async (product: Product) => {
-    try {
-      const updated = await productService.updateProductStock(product.id, product.stock + 10);
-      if (updated) {
-        setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
-        Alert.alert('Success', 'Stock updated (+10)');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to update stock');
-    }
   };
 
   if (loading && !refreshing) {
@@ -82,15 +79,14 @@ export const ProductListScreen = ({ navigation, route }: any) => {
     <View style={styles.container}>
       <FlatList
         data={products}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.productId}
         renderItem={({ item }) => (
           <ProductCard
             product={item}
             role={role}
-            onViewDetails={(p) => navigation.navigate('ProductDetails', { productId: p.id })}
+            onViewDetails={(p) => navigation.navigate('ProductDetails', { productId: p.productId })}
             onAddToCart={handleAddToCart}
-            onEdit={(p) => Alert.alert('Edit', `Editing ${p.name}`)}
-            onUpdateStock={handleUpdateStock}
+            onEdit={(p) => navigation.navigate('EditStock', { product: p })}
           />
         )}
         ListHeaderComponent={
@@ -103,6 +99,8 @@ export const ProductListScreen = ({ navigation, route }: any) => {
         maxToRenderPerBatch={8}
         windowSize={10}
         removeClippedSubviews={Platform.OS === 'android'}
+        onEndReached={() => nextCursor && !loadingMore && fetchProducts(nextCursor)}
+        onEndReachedThreshold={0.4}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2e7d32']} />
         }
@@ -114,25 +112,8 @@ export const ProductListScreen = ({ navigation, route }: any) => {
         contentContainerStyle={styles.listContent}
       />
 
-      {(role === 'admin' || role === 'staff') && (
-        <>
-          <TouchableOpacity
-            style={styles.fab}
-            onPress={() => navigation.navigate('AddProduct')}
-          >
-            <Text style={styles.fabIcon}>+</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.fab, { bottom: 90, backgroundColor: '#f57c00' }]}
-            onPress={() => navigation.navigate('OrderList')}
-          >
-            <Text style={styles.fabText}>Orders</Text>
-          </TouchableOpacity>
-        </>
-      )}
-
       <TouchableOpacity
-        style={[styles.fab, { bottom: role === 'customer' ? 100 : 160, backgroundColor: '#1565c0' }]}
+        style={[styles.fab, { bottom: 20, backgroundColor: '#1565c0' }]}
         onPress={() => navigation.navigate('Cart')}
       >
         <Text style={styles.fabText}>Cart</Text>
@@ -147,51 +128,18 @@ export const ProductListScreen = ({ navigation, route }: any) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    color: '#666',
-  },
-  listContent: {
-    paddingBottom: 100,
-  },
-  headerContainer: {
-    padding: 16,
-    backgroundColor: '#fff',
-    marginBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  headerText: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 4,
-  },
-  headerTextTamil: {
-    fontSize: 15,
-    color: '#666',
-  },
-  emptyContainer: {
-    padding: 32,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#999',
-  },
+  container:       { flex: 1, backgroundColor: '#f5f5f5' },
+  centered:        { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText:     { marginTop: 12, color: '#666' },
+  listContent:     { paddingBottom: 100 },
+  headerContainer: { padding: 16, backgroundColor: '#fff', marginBottom: 8, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  headerText:      { fontSize: 16, color: '#333', marginBottom: 4 },
+  headerTextTamil: { fontSize: 15, color: '#666' },
+  emptyContainer:  { padding: 32, alignItems: 'center' },
+  emptyText:       { fontSize: 16, color: '#999' },
   fab: {
     position: 'absolute',
     right: 20,
-    bottom: 20,
-    backgroundColor: '#2e7d32',
     width: 60,
     height: 60,
     borderRadius: 30,
@@ -203,16 +151,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
   },
-  fabIcon: {
-    color: '#fff',
-    fontSize: 32,
-    fontWeight: '300',
-  },
-  fabText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
+  fabText:  { color: '#fff', fontSize: 12, fontWeight: 'bold' },
   badge: {
     position: 'absolute',
     top: -4,
@@ -225,9 +164,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 4,
   },
-  badgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
 });

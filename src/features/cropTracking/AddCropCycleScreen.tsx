@@ -1,13 +1,26 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
-  ScrollView, Alert, KeyboardAvoidingView, Platform,
+  ScrollView, Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
 import { Sprout, Calendar, Layers, Save, ArrowLeft } from 'lucide-react-native';
 import { useDispatch } from 'react-redux';
+import { AppDispatch } from '../../store';
 import { addCropCycle } from '../../store/cropSlice';
+import { api } from '../../services/api';
+
+const adaptCycle = (c: any) => ({
+  id:        c.cycleId,
+  landId:    c.landId,
+  cropName:  c.cropName,
+  startDate: c.startDate,
+  endDate:   c.endDate || undefined,
+  area:      c.area || undefined,
+  cropAge:   0,
+  status:    (c.status === 'COMPLETED' ? 'completed' : 'active') as 'active' | 'completed' | 'current',
+});
 
 const todayStr = () => {
   const d = new Date();
@@ -15,12 +28,13 @@ const todayStr = () => {
 };
 
 export const AddCropCycleScreen = ({ route, navigation }: any) => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const { landId, landName } = route.params;
 
   const [cropName, setCropName] = useState('');
   const [startDate, setStartDate] = useState(todayStr());
   const [area, setArea] = useState('');
+  const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validate = () => {
@@ -31,20 +45,25 @@ export const AddCropCycleScreen = ({ route, navigation }: any) => {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validate()) return;
-    dispatch(addCropCycle({
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
-      landId,
-      cropName: cropName.trim(),
-      startDate,
-      area: area.trim() + (area.includes('Acre') ? '' : ' Acres'),
-      cropAge: 0,
-      status: 'current',
-    }));
-    Alert.alert('Success', `${cropName} cultivation cycle started!`, [
-      { text: 'OK', onPress: () => navigation.goBack() },
-    ]);
+    setSaving(true);
+    try {
+      const res = await api.post<any>('/crop-cycles', {
+        landId,
+        cropName: cropName.trim(),
+        startDate,
+        area: area.trim() + (area.includes('Acre') ? '' : ' Acres'),
+      });
+      dispatch(addCropCycle(adaptCycle(res)));
+      Alert.alert('Success', `${cropName} cultivation cycle started!`, [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'Failed to create crop cycle. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -113,9 +132,9 @@ export const AddCropCycleScreen = ({ route, navigation }: any) => {
             {!!errors.area && <Text style={styles.errorText}>{errors.area}</Text>}
           </View>
 
-          <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} activeOpacity={0.85}>
-            <Save size={20} color="#FFF" />
-            <Text style={styles.submitBtnText}>Start Cultivation</Text>
+          <TouchableOpacity style={[styles.submitBtn, saving && { opacity: 0.7 }]} onPress={handleSubmit} activeOpacity={0.85} disabled={saving}>
+            {saving ? <ActivityIndicator color="#FFF" /> : <Save size={20} color="#FFF" />}
+            <Text style={styles.submitBtnText}>{saving ? 'Saving…' : 'Start Cultivation'}</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>

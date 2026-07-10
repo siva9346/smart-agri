@@ -1,28 +1,39 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
-import { cropStore } from './store';
-import { Card } from '../../components/Card';
 import { PieChart, ArrowLeft, TrendingUp } from 'lucide-react-native';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../store';
+
+const COLORS_LIST = ['#4CAF50', '#2196F3', '#FFC107', '#E91E63', '#9C27B0', '#00BCD4', '#FF9800', '#795548'];
+const getColor = (index: number) => COLORS_LIST[index % COLORS_LIST.length];
 
 export const ExpenseBreakdownScreen = ({ route, navigation }: any) => {
   const { cropCycleId } = route.params;
-  const breakdown = cropStore.getCostTypeBreakdown(cropCycleId);
-  const cycle = cropStore.getCropCycleById(cropCycleId);
-  const total = Object.values(breakdown).reduce((sum, val) => sum + val, 0);
+
+  const cycle = useSelector((state: RootState) =>
+    state.crop.cropCycles.find(cc => cc.id === cropCycleId)
+  );
+  const records = useSelector((state: RootState) =>
+    state.crop.recordsByCycleId[cropCycleId] ?? []
+  );
+
+  const { breakdown, total } = useMemo(() => {
+    const b: Record<string, number> = {};
+    for (const r of records) {
+      const key = r.costType || 'Other';
+      b[key] = (b[key] || 0) + r.expense;
+    }
+    return { breakdown: b, total: Object.values(b).reduce((s, v) => s + v, 0) };
+  }, [records]);
 
   const data = Object.entries(breakdown).map(([type, amount], index) => ({
     id: index.toString(),
     type,
     amount,
-    percentage: ((amount / total) * 100).toFixed(1),
+    percentage: total > 0 ? ((amount / total) * 100).toFixed(1) : '0.0',
     color: getColor(index),
   })).sort((a, b) => b.amount - a.amount);
-
-  function getColor(index: number) {
-    const colors = ['#4CAF50', '#2196F3', '#FFC107', '#E91E63', '#9C27B0', '#00BCD4', '#FF9800', '#795548'];
-    return colors[index % colors.length];
-  }
 
   return (
     <View style={styles.container}>
@@ -65,6 +76,7 @@ export const ExpenseBreakdownScreen = ({ route, navigation }: any) => {
           </View>
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ListEmptyComponent={<Text style={styles.emptyText}>No expense records yet.</Text>}
       />
 
       <View style={styles.summaryFooter}>
@@ -184,6 +196,11 @@ const styles = StyleSheet.create({
   separator: {
       height: 1,
       backgroundColor: COLORS.border,
+  },
+  emptyText: {
+      textAlign: 'center',
+      color: COLORS.textSecondary,
+      paddingVertical: 32,
   },
   summaryFooter: {
       flexDirection: 'row',

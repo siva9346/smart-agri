@@ -1,107 +1,105 @@
-import React, { useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Alert, Platform } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
-import { Bell, Edit2, Trash2, Plus, Calendar } from 'lucide-react-native';
+import { Bell, Trash2, Plus } from 'lucide-react-native';
+import { api } from '../../../services/api';
+import { LoadingState, EmptyState, ErrorState } from '../../../components/States';
 
-const INITIAL_NOTIFS = [
-  { id: '1', title: 'Heavy Rain Alert', message: 'Heavy rainfall expected tomorrow across local sectors. Secure crops accordingly.', date: new Date().toLocaleDateString() },
-  { id: '2', title: 'Subsidized Urea Restocked', message: 'New stock of subsidized Urea is now available at the main distribution center.', date: new Date(Date.now() - 86400000).toLocaleDateString() },
-  { id: '3', title: 'Pest Warning', message: 'Warning: Fall Armyworm sightings reported in eastern fields. Preventive spraying recommended.', date: new Date(Date.now() - 172800000).toLocaleDateString() },
-  { id: '4', title: 'State Market Holiday', message: 'The local agriculture markets will remain closed tomorrow due to standard holidays.', date: new Date(Date.now() - 259200000).toLocaleDateString() },
-];
+interface ApiNotif {
+  notifId: string;
+  title: string;
+  message: string;
+  type: string;
+  createdAt: string;
+}
 
-export const NotificationListScreen = ({ navigation, route }: any) => {
-  const [notifications, setNotifications] = useState(INITIAL_NOTIFS);
+export const NotificationListScreen = ({ navigation }: any) => {
+  const [notifs,      setNotifs]      = useState<ApiNotif[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState<string | null>(null);
+  const [nextCursor,  setNextCursor]  = useState<string | undefined>();
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  React.useEffect(() => {
-    if (route.params?.newNotification) {
-      setNotifications(prev => [route.params.newNotification, ...prev]);
-      navigation.setParams({ newNotification: undefined });
+  const fetchNotifs = useCallback(async (cursor?: string) => {
+    if (cursor) setLoadingMore(true); else setLoading(true);
+    try {
+      const path = cursor ? `/notifications?cursor=${cursor}` : '/notifications';
+      const res  = await api.get<{ items: ApiNotif[]; nextCursor?: string }>(path);
+      setNotifs(prev => cursor ? [...prev, ...res.items] : res.items);
+      setNextCursor(res.nextCursor);
+      setError(null);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load notifications');
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
     }
-    if (route.params?.updatedNotification) {
-      setNotifications(prev => prev.map(n => n.id === route.params.updatedNotification.id ? route.params.updatedNotification : n));
-      navigation.setParams({ updatedNotification: undefined });
-    }
-  }, [route.params?.newNotification, route.params?.updatedNotification]);
+  }, []);
 
-  const handleDelete = (id: string) => {
-    Alert.alert('Delete Notification', 'Are you sure you want to delete this global alert?', [
+  useEffect(() => { fetchNotifs(); }, [fetchNotifs]);
+
+  const handleDelete = (notifId: string) => {
+    Alert.alert('Delete', 'Remove this notification?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => setNotifications(prev => prev.filter(n => n.id !== id)) }
+      {
+        text: 'Delete', style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.delete(`/notifications/${notifId}`);
+            setNotifs(prev => prev.filter(n => n.notifId !== notifId));
+          } catch (err: any) {
+            Alert.alert('Error', err?.message ?? 'Failed to delete');
+          }
+        },
+      },
     ]);
   };
 
-  const renderNotification = useCallback(({ item }: { item: any }) => (
+  const renderItem = useCallback(({ item }: { item: ApiNotif }) => (
     <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.titleRow}>
-          <Bell size={18} color={COLORS.primary} style={{ marginRight: 8 }} />
-          <Text style={styles.title}>{item.title}</Text>
-        </View>
-        <View style={styles.actions}>
-          <TouchableOpacity onPress={() => navigation.navigate('EditNotification', { notification: item })} style={styles.actionBtn}>
-            <Edit2 size={16} color="#666" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.actionBtn}>
-            <Trash2 size={16} color="#E53935" />
-          </TouchableOpacity>
-        </View>
+      <Bell size={18} color={COLORS.primary} style={{ marginRight: 10, marginTop: 2 }} />
+      <View style={styles.content}>
+        <Text style={styles.title}>{item.title}</Text>
+        <Text style={styles.message}>{item.message}</Text>
+        <Text style={styles.date}>{item.createdAt.split('T')[0]}</Text>
       </View>
-
-      <Text style={styles.message} numberOfLines={2}>{item.message}</Text>
-      
-      <View style={styles.divider} />
-      
-      <View style={styles.cardFooter}>
-        <Calendar size={14} color="#888" style={{ marginRight: 6 }} />
-        <Text style={styles.date}>{item.date}</Text>
-      </View>
+      <TouchableOpacity onPress={() => handleDelete(item.notifId)}>
+        <Trash2 size={18} color="#e74c3c" />
+      </TouchableOpacity>
     </View>
-  ), [navigation]);
+  ), []);
+
+  if (loading) return <LoadingState />;
+  if (error)   return <ErrorState error={error} />;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.headerArea}>
-        <Text style={styles.headerTitle}>Global Notifications</Text>
-        <TouchableOpacity 
-          style={styles.addBtn}
-          onPress={() => navigation.navigate('AddNotification')}
-        >
-          <Plus size={20} color="#FFF" />
-          <Text style={styles.addBtnText}>Push Alert</Text>
-        </TouchableOpacity>
-      </View>
-
+    <SafeAreaView style={styles.safe}>
+      <TouchableOpacity style={styles.addBtn} onPress={() => navigation.navigate('AddNotification', { onAdded: fetchNotifs })}>
+        <Plus size={20} color="#fff" />
+        <Text style={styles.addBtnText}>New Notification</Text>
+      </TouchableOpacity>
       <FlatList
-        data={notifications}
-        keyExtractor={item => item.id}
-        renderItem={renderNotification}
-        contentContainerStyle={styles.listContent}
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
-        windowSize={8}
+        data={notifs}
+        keyExtractor={i => i.notifId}
+        contentContainerStyle={styles.list}
+        renderItem={renderItem}
+        onEndReached={() => nextCursor && !loadingMore && fetchNotifs(nextCursor)}
+        onEndReachedThreshold={0.4}
         removeClippedSubviews={Platform.OS === 'android'}
-        ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 40, color: '#999' }}>No active notifications.</Text>}
+        ListEmptyComponent={<EmptyState message="No notifications yet" />}
       />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  headerArea: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: SPACING.lg, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#EEE' },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#333' },
-  addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: BORDER_RADIUS.md },
-  addBtnText: { color: '#FFF', fontWeight: 'bold', marginLeft: 4 },
-  listContent: { padding: SPACING.md },
-  card: { backgroundColor: '#FFF', padding: SPACING.lg, borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.md, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  titleRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  title: { fontSize: 16, fontWeight: 'bold', color: '#1A1A1A', flex: 1 },
-  actions: { flexDirection: 'row' },
-  actionBtn: { padding: 6, marginLeft: 8, backgroundColor: '#F9F9F9', borderRadius: 20 },
-  message: { fontSize: 14, color: '#555', marginTop: SPACING.sm, lineHeight: 20 },
-  divider: { height: 1, backgroundColor: '#F0F0F0', marginVertical: SPACING.sm },
-  cardFooter: { flexDirection: 'row', alignItems: 'center' },
-  date: { fontSize: 12, color: '#888', fontStyle: 'italic' },
+  safe:       { flex: 1, backgroundColor: COLORS.background },
+  addBtn:     { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, margin: SPACING.md, padding: SPACING.md, borderRadius: BORDER_RADIUS.md, justifyContent: 'center', gap: 8 },
+  addBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
+  list:       { paddingHorizontal: SPACING.md, paddingBottom: SPACING.md },
+  card:       { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.sm, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2 },
+  content:    { flex: 1 },
+  title:      { fontSize: 15, fontWeight: 'bold', color: COLORS.text },
+  message:    { fontSize: 14, color: COLORS.textSecondary, marginTop: 4 },
+  date:       { fontSize: 12, color: COLORS.textSecondary, marginTop: 6 },
 });

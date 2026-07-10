@@ -15,6 +15,7 @@ export const AddProductScreen = ({ navigation }: any) => {
   const [formData, setFormData] = useState({
     name: '',
     category: 'Fertilizers',
+    unit: 'kg',
     price: '',
     stock: '',
     description: '',
@@ -34,6 +35,7 @@ export const AddProductScreen = ({ navigation }: any) => {
       await productService.addProduct({
         name,
         category,
+        unit: formData.unit,
         price: parseFloat(price),
         stock: parseInt(stock, 10),
         description,
@@ -70,6 +72,16 @@ export const AddProductScreen = ({ navigation }: any) => {
             value={formData.category}
             onChangeText={(txt) => setFormData(p => ({ ...p, category: txt }))}
             placeholder="e.g. Fertilizers"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Unit (e.g. kg, L, bag)</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.unit}
+            onChangeText={(txt) => setFormData(p => ({ ...p, unit: txt }))}
+            placeholder="kg"
           />
         </View>
 

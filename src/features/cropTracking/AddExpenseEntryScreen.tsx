@@ -9,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
@@ -25,7 +26,9 @@ import {
   Activity,
 } from 'lucide-react-native';
 import { useDispatch } from 'react-redux';
+import { AppDispatch } from '../../store';
 import { addRecord } from '../../store/cropSlice';
+import { api } from '../../services/api';
 
 // ─── Activity Types ───────────────────────────────────────────────────────────
 
@@ -164,8 +167,22 @@ const todayStr = () => {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+const adaptRecord = (r: any) => ({
+  id:           r.recordId,
+  cropCycleId:  r.cycleId,
+  date:         r.date,
+  stage:        r.stage || r.activityType || '',
+  costType:     r.costType || '',
+  activityType: r.activityType || undefined,
+  expense:      typeof r.expense === 'number' ? r.expense : parseFloat(r.expense ?? '0') || 0,
+  incomeAmount: r.incomeAmount != null ? (typeof r.incomeAmount === 'number' ? r.incomeAmount : parseFloat(r.incomeAmount)) : undefined,
+  quantity:     r.quantity || undefined,
+  notes:        r.notes || '',
+  image:        r.image || undefined,
+});
+
 export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const { cropCycleId } = route.params || {};
 
   const [date, setDate] = useState(todayStr());
@@ -176,6 +193,7 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
   const [quantityInput, setQuantityInput] = useState('');
   const [notes, setNotes] = useState('');
   const [imagePicked, setImagePicked] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const selectedActivity = ACTIVITY_TYPES.find(a => a.value === activityType);
@@ -214,30 +232,32 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validate()) return;
 
     const costTypeValue = activityType === 'Expense' ? expenseSubType : activityType;
-
-    dispatch(
-      addRecord({
-        id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
-        cropCycleId,
+    setSaving(true);
+    try {
+      const res = await api.post<any>('/records', {
+        cycleId:      cropCycleId,
         date,
-        stage: activityType,
-        costType: costTypeValue,
+        stage:        activityType,
+        costType:     costTypeValue,
         activityType,
-        expense: showIncomeField ? 0 : (amount.trim() ? Number(amount) : 0),
+        expense:      showIncomeField ? 0 : (amount.trim() ? Number(amount) : 0),
         incomeAmount: showIncomeField && incomeAmount.trim() ? Number(incomeAmount) : undefined,
-        quantity: showIncomeField && quantityInput.trim() ? quantityInput.trim() : undefined,
+        quantity:     showIncomeField && quantityInput.trim() ? quantityInput.trim() : undefined,
         notes,
-        image: imagePicked ? 'placeholder' : undefined,
-      }),
-    );
-
-    Alert.alert('Saved!', 'Activity record added successfully.', [
-      { text: 'OK', onPress: () => navigation.goBack() },
-    ]);
+      });
+      dispatch(addRecord(adaptRecord(res)));
+      Alert.alert('Saved!', 'Activity record added successfully.', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'Failed to save record. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -534,12 +554,13 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
           {/* ── Submit ── */}
           {!!activityType && (
             <TouchableOpacity
-              style={styles.submitBtn}
+              style={[styles.submitBtn, saving && { opacity: 0.7 }]}
               onPress={handleSubmit}
               activeOpacity={0.85}
+              disabled={saving}
             >
-              <Save size={20} color="#FFF" />
-              <Text style={styles.submitBtnText}>Save Record</Text>
+              {saving ? <ActivityIndicator color="#FFF" /> : <Save size={20} color="#FFF" />}
+              <Text style={styles.submitBtnText}>{saving ? 'Saving…' : 'Save Record'}</Text>
             </TouchableOpacity>
           )}
 

@@ -1,150 +1,80 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Alert } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
+import { api } from '../../../services/api';
 
 export const AddCustomerScreen = ({ navigation }: any) => {
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [address, setAddress] = useState('');
+  const [name,     setName]     = useState('');
+  const [phone,    setPhone]    = useState('');
+  const [village,  setVillage]  = useState('');
+  const [district, setDistrict] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading,  setLoading]  = useState(false);
 
-  const handleSubmit = () => {
-    if (!name || !phone || !address) {
-      Alert.alert('Error', 'Please fill all required fields');
+  const handleSave = async () => {
+    if (!name.trim() || !phone.trim()) {
+      Alert.alert('Error', 'Name and phone are required');
       return;
     }
-
-    const newCustomer = {
-      id: Math.random().toString(),
-      name,
-      phone,
-      email,
-      village: address,
-      landsCount: 0,
-      lands: []
-    };
-
-    Alert.alert('Success', 'Customer added. Login details sent to customer email.', [
-      { text: 'OK', onPress: () => navigation.navigate('AddCustomer', { newCustomer }) }
-    ]);
+    if (phone.length !== 10) {
+      Alert.alert('Error', 'Phone must be 10 digits');
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.post('/farmers', {
+        name:     name.trim(),
+        phone:    phone.trim(),
+        village:  village.trim(),
+        district: district.trim(),
+        password: password.trim() || 'Welcome@123',
+      });
+      Alert.alert('Success', `Farmer ${name} registered successfully.\nDefault password: ${password.trim() || 'Welcome@123'}`);
+      navigation.goBack();
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'Failed to register farmer');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.card}>
-          <Text style={styles.title}>Register New Farmer</Text>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Full Name *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Rajendran"
-              value={name}
-              onChangeText={setName}
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Phone Number *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="10 digit mobile number"
-              keyboardType="phone-pad"
-              value={phone}
-              onChangeText={setPhone}
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Optional"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Village / Address *</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Enter full address..."
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-              value={address}
-              onChangeText={setAddress}
-            />
-          </View>
-
-          <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-            <Text style={styles.buttonText}>Add Customer</Text>
-          </TouchableOpacity>
+    <SafeAreaView style={styles.safe}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <View style={styles.field}>
+          <Text style={styles.label}>Full Name *</Text>
+          <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="e.g. Murugan Kumar" />
         </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Phone Number *</Text>
+          <TextInput style={styles.input} value={phone} onChangeText={setPhone} placeholder="10-digit mobile number" keyboardType="phone-pad" maxLength={10} />
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Village</Text>
+          <TextInput style={styles.input} value={village} onChangeText={setVillage} placeholder="e.g. Avadi" />
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>District</Text>
+          <TextInput style={styles.input} value={district} onChangeText={setDistrict} placeholder="e.g. Chennai" />
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Password (optional)</Text>
+          <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder="Default: Welcome@123" secureTextEntry />
+        </View>
+        <TouchableOpacity style={[styles.button, loading && { opacity: 0.7 }]} onPress={handleSave} disabled={loading}>
+          <Text style={styles.buttonText}>{loading ? 'Registering...' : 'Register Farmer'}</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F7FA',
-  },
-  content: {
-    padding: SPACING.md,
-  },
-  card: {
-    backgroundColor: '#FFF',
-    padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: SPACING.xl,
-    textAlign: 'center',
-  },
-  field: {
-    marginBottom: SPACING.md,
-  },
-  label: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 6,
-    fontWeight: '500',
-  },
-  input: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: BORDER_RADIUS.md,
-    padding: 12,
-    fontSize: 15,
-  },
-  textArea: {
-    height: 80,
-  },
-  button: {
-    backgroundColor: COLORS.primary,
-    padding: 16,
-    borderRadius: BORDER_RADIUS.md,
-    alignItems: 'center',
-    marginTop: SPACING.md,
-  },
-  buttonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  safe:       { flex: 1, backgroundColor: COLORS.background },
+  container:  { padding: SPACING.lg },
+  field:      { marginBottom: SPACING.lg },
+  label:      { fontSize: 14, color: COLORS.text, marginBottom: SPACING.xs, fontWeight: '600' },
+  input:      { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, fontSize: 16, color: COLORS.text },
+  button:     { backgroundColor: COLORS.primary, padding: SPACING.md, borderRadius: BORDER_RADIUS.md, alignItems: 'center', marginTop: SPACING.md },
+  buttonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
 });

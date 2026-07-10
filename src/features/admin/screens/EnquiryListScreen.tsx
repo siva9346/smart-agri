@@ -1,250 +1,119 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, TouchableWithoutFeedback, Platform } from 'react-native';
-
-const PAGE_SIZE = 20;
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
-import { MessageSquare, MapPin, Calendar, Clock, CheckCircle } from 'lucide-react-native';
+import { api } from '../../../services/api';
+import { LoadingState, EmptyState, ErrorState } from '../../../components/States';
 
-const INITIAL_ENQUIRIES = [
-  {
-    id: 'E101',
-    userName: 'Ravi Kumar',
-    village: 'Ambattur',
-    enquiryText: 'Crop leaves turning yellow, need advice',
-    fullMessage: 'My paddy crop has been showing yellowing on the lower leaves covering around 2 acres of land. I applied Urea last week but the spreading continues. Please suggest a remedy.',
-    date: new Date().toLocaleDateString(),
-    status: 'Pending',
-    phone: '9876543210'
-  },
-  {
-    id: 'E102',
-    userName: 'Suresh Anna',
-    village: 'Madurai',
-    enquiryText: 'Looking to buy bulk DAP fertilizer',
-    fullMessage: 'I need to purchase 50 bags of DAP fertilizer for the upcoming season. Let me know the discounted price.',
-    date: new Date(Date.now() - 86400000).toLocaleDateString(),
-    status: 'Completed',
-    phone: '9876543211'
-  },
-  {
-    id: 'E103',
-    userName: 'Murugan',
-    village: 'Avadi',
-    enquiryText: 'Pest attack on tomato plants',
-    fullMessage: 'Noticing significant pest attacks forming webs on my tomato plants during morning hours. Which pesticide works best?',
-    date: new Date(Date.now() - 172800000).toLocaleDateString(),
-    status: 'Pending',
-    phone: '9876543212'
-  },
-  {
-    id: 'E104',
-    userName: 'Karthik',
-    village: 'Trichy',
-    enquiryText: 'Payment issue on last order',
-    fullMessage: 'My recent order for Organic Compost shows failed payment but money was deducted from my account. Please verify.',
-    date: new Date(Date.now() - 259200000).toLocaleDateString(),
-    status: 'Completed',
-    phone: '9876543213'
-  },
-  {
-    id: 'E105',
-    userName: 'Velu',
-    village: 'Tirunelveli',
-    enquiryText: 'Recommendation for banana crop',
-    fullMessage: 'Starting a new banana plantation. Need a complete fertilizer schedule for the first 3 months.',
-    date: new Date(Date.now() - 345600000).toLocaleDateString(),
-    status: 'Pending',
-    phone: '9876543214'
-  }
-];
+interface ApiEnquiry {
+  enquiryId: string;
+  farmerId: string;
+  subject: string;
+  message: string;
+  category: string;
+  status: string;
+  response?: string;
+  createdAt: string;
+}
 
-export const EnquiryListScreen = ({ navigation, route }: any) => {
-  const [enquiries, setEnquiries] = useState(INITIAL_ENQUIRIES);
-  const [filter, setFilter] = useState<'All' | 'Pending' | 'Completed'>('All');
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+const FILTERS = ['All', 'OPEN', 'IN_PROGRESS', 'RESOLVED'];
+const STATUS_COLOR: Record<string, string> = { OPEN: '#e67e22', IN_PROGRESS: '#2980b9', RESOLVED: '#27ae60', CLOSED: '#7f8c8d' };
 
-  React.useEffect(() => {
-    if (route.params?.updatedEnquiry) {
-      setEnquiries(prev => prev.map(e => e.id === route.params.updatedEnquiry.id ? route.params.updatedEnquiry : e));
-      navigation.setParams({ updatedEnquiry: undefined });
+export const EnquiryListScreen = ({ navigation }: any) => {
+  const [enquiries,   setEnquiries]   = useState<ApiEnquiry[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState<string | null>(null);
+  const [filter,      setFilter]      = useState('All');
+  const [nextCursor,  setNextCursor]  = useState<string | undefined>();
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const fetchEnquiries = useCallback(async (cursor?: string, status?: string) => {
+    if (cursor) setLoadingMore(true); else setLoading(true);
+    try {
+      let path = '/enquiries';
+      const params = [];
+      if (status && status !== 'All') params.push(`status=${status}`);
+      if (cursor) params.push(`cursor=${cursor}`);
+      if (params.length) path += '?' + params.join('&');
+
+      const res = await api.get<{ items: ApiEnquiry[]; nextCursor?: string }>(path);
+      setEnquiries(prev => cursor ? [...prev, ...res.items] : res.items);
+      setNextCursor(res.nextCursor);
+      setError(null);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load enquiries');
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
     }
-  }, [route.params?.updatedEnquiry]);
-
-  // Memoised filter — only recomputes when enquiries or filter changes
-  const filteredEnquiries = useMemo(() => {
-    const base = filter === 'All' ? enquiries : enquiries.filter(e => e.status === filter);
-    return base.slice(0, visibleCount);
-  }, [enquiries, filter, visibleCount]);
-
-  const handleFilterChange = useCallback((f: 'All' | 'Pending' | 'Completed') => {
-    setFilter(f);
-    setVisibleCount(PAGE_SIZE); // reset pagination when filter changes
   }, []);
 
-  const handleEndReached = useCallback(() => {
-    const total = filter === 'All' ? enquiries.length : enquiries.filter(e => e.status === filter).length;
-    setVisibleCount(c => Math.min(c + PAGE_SIZE, total));
-  }, [enquiries, filter]);
+  useEffect(() => { fetchEnquiries(undefined, filter); }, [filter, fetchEnquiries]);
 
-  const renderEnquiry = useCallback(({ item }: { item: typeof INITIAL_ENQUIRIES[0] }) => {
-    const isPending = item.status === 'Pending';
-    return (
-      <TouchableOpacity 
-        style={styles.card}
-        activeOpacity={0.9}
-        onPress={() => navigation.navigate('EnquiryDetails', { enquiry: item })}
-      >
-        <View style={styles.cardHeader}>
-          <Text style={styles.userName}>{item.userName}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: isPending ? '#FFF3E0' : '#E8F5E9' }]}>
-            <Text style={[styles.statusText, { color: isPending ? '#E65100' : '#2E7D32' }]}>{item.status}</Text>
-          </View>
-        </View>
-        
-        <Text style={styles.preview} numberOfLines={2}>"{item.enquiryText}"</Text>
+  const handleFilterChange = useCallback((f: string) => {
+    setFilter(f);
+    setEnquiries([]);
+    setNextCursor(undefined);
+  }, []);
 
-        <View style={styles.cardFooter}>
-          <View style={styles.footerItem}>
-            <MapPin size={14} color="#666" style={{ marginRight: 4 }} />
-            <Text style={styles.footerText}>{item.village}</Text>
-          </View>
-          <View style={styles.footerItem}>
-            <Calendar size={14} color="#666" style={{ marginRight: 4 }} />
-            <Text style={styles.footerText}>{item.date}</Text>
-          </View>
+  const renderItem = useCallback(({ item }: { item: ApiEnquiry }) => (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => navigation.navigate('EnquiryDetails', { enquiryId: item.enquiryId, onUpdate: () => fetchEnquiries(undefined, filter) })}
+    >
+      <View style={styles.cardHeader}>
+        <Text style={styles.subject}>{item.subject}</Text>
+        <View style={[styles.badge, { backgroundColor: (STATUS_COLOR[item.status] ?? '#666') + '20' }]}>
+          <Text style={[styles.badgeText, { color: STATUS_COLOR[item.status] ?? '#666' }]}>{item.status}</Text>
         </View>
-      </TouchableOpacity>
-    );
-  }, [navigation]);
+      </View>
+      <Text style={styles.message} numberOfLines={2}>{item.message}</Text>
+      <Text style={styles.date}>{item.createdAt.split('T')[0]}</Text>
+    </TouchableOpacity>
+  ), [navigation, filter, fetchEnquiries]);
+
+  if (loading) return <LoadingState />;
+  if (error)   return <ErrorState error={error} />;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.filterContainer}>
-        {(['All', 'Pending', 'Completed'] as const).map(f => (
-          <TouchableWithoutFeedback key={f} onPress={() => handleFilterChange(f)}>
-            <View style={[styles.filterPill, filter === f && styles.filterPillActive]}>
-              <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
-            </View>
-          </TouchableWithoutFeedback>
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.filterRow}>
+        {FILTERS.map(f => (
+          <TouchableOpacity
+            key={f}
+            style={[styles.filterBtn, filter === f && styles.filterBtnActive]}
+            onPress={() => handleFilterChange(f)}
+          >
+            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
+          </TouchableOpacity>
         ))}
       </View>
-
       <FlatList
-        data={filteredEnquiries}
-        keyExtractor={item => item.id}
-        renderItem={renderEnquiry}
-        contentContainerStyle={styles.listContent}
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
-        windowSize={10}
-        removeClippedSubviews={Platform.OS === 'android'}
-        onEndReached={handleEndReached}
+        data={enquiries}
+        keyExtractor={i => i.enquiryId}
+        contentContainerStyle={styles.list}
+        renderItem={renderItem}
+        onEndReached={() => nextCursor && !loadingMore && fetchEnquiries(nextCursor, filter)}
         onEndReachedThreshold={0.4}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <MessageSquare size={48} color="#CCC" />
-            <Text style={styles.emptyText}>No enquiries found.</Text>
-          </View>
-        }
+        removeClippedSubviews={Platform.OS === 'android'}
+        ListEmptyComponent={<EmptyState message="No enquiries found" />}
       />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F7FA',
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    padding: SPACING.md,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEE',
-  },
-  filterPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F5F5F5',
-    marginRight: SPACING.md,
-  },
-  filterPillActive: {
-    backgroundColor: COLORS.primary,
-  },
-  filterText: {
-    color: '#666',
-    fontWeight: '500',
-  },
-  filterTextActive: {
-    color: '#FFF',
-    fontWeight: 'bold',
-  },
-  listContent: {
-    padding: SPACING.md,
-  },
-  card: {
-    backgroundColor: '#FFF',
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.lg,
-    marginBottom: SPACING.md,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  userName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  preview: {
-    fontSize: 14,
-    color: '#555',
-    fontStyle: 'italic',
-    marginBottom: SPACING.md,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-    paddingTop: SPACING.sm,
-  },
-  footerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 13,
-    color: '#666',
-  },
-  emptyContainer: {
-    padding: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    marginTop: SPACING.md,
-    fontSize: 16,
-    color: '#999',
-  }
+  safe:            { flex: 1, backgroundColor: COLORS.background },
+  filterRow:       { flexDirection: 'row', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, gap: 8 },
+  filterBtn:       { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
+  filterBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  filterText:      { fontSize: 12, color: COLORS.text, fontWeight: '500' },
+  filterTextActive:{ color: '#fff' },
+  list:            { paddingHorizontal: SPACING.md, paddingBottom: SPACING.md },
+  card:            { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.sm, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2 },
+  cardHeader:      { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  subject:         { flex: 1, fontSize: 15, fontWeight: 'bold', color: COLORS.text },
+  badge:           { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  badgeText:       { fontSize: 11, fontWeight: 'bold' },
+  message:         { fontSize: 13, color: COLORS.textSecondary, marginBottom: 6 },
+  date:            { fontSize: 12, color: COLORS.textSecondary },
 });

@@ -1,102 +1,103 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Alert } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
+import { api } from '../../../services/api';
 
-export const AddSymptomScreen = ({ navigation }: any) => {
-  const [title, setTitle] = useState('');
+export const AddSymptomScreen = ({ navigation, route }: any) => {
+  const [name,        setName]        = useState('');
+  const [cropName,    setCropName]    = useState('');
   const [description, setDescription] = useState('');
-  const [crop, setCrop] = useState('');
-  const [severity, setSeverity] = useState('Medium');
+  const [cause,       setCause]       = useState('');
+  const [remedy,      setRemedy]      = useState('');
+  const [prevention,  setPrevention]  = useState('');
+  const [severity,    setSeverity]    = useState('MEDIUM');
+  const [loading,     setLoading]     = useState(false);
 
-  const handleSubmit = () => {
-    if (!title || !description || !crop) {
-      Alert.alert('Error', 'Please fill all required fields');
+  const handleSave = async () => {
+    if (!name.trim() || !cropName.trim()) {
+      Alert.alert('Error', 'Symptom name and crop name are required');
       return;
     }
-
-    const newSymptom = {
-      id: Math.random().toString(),
-      title,
-      description,
-      crop,
-      severity
-    };
-
-    Alert.alert('Success', 'Symptom added successfully', [
-      { text: 'OK', onPress: () => navigation.navigate('SymptomsList', { newSymptom }) }
-    ]);
+    setLoading(true);
+    try {
+      await api.post('/symptoms', {
+        name:        name.trim(),
+        cropName:    cropName.trim(),
+        description: description.trim(),
+        cause:       cause.trim(),
+        remedy:      remedy.trim(),
+        prevention:  prevention.trim(),
+        severity,
+      });
+      Alert.alert('Success', 'Symptom record added');
+      route.params?.onAdded?.();
+      navigation.goBack();
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'Failed to add symptom');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const severities = ['LOW', 'MEDIUM', 'HIGH'];
+
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.card}>
-          <Text style={styles.title}>Record New Symptom</Text>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Symptom Title *</Text>
-            <TextInput style={styles.input} placeholder="e.g. Leaf Yellowing" value={title} onChangeText={setTitle} />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Target Crop *</Text>
-            <TextInput style={styles.input} placeholder="e.g. Paddy" value={crop} onChangeText={setCrop} />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Severity Level *</Text>
-            <View style={styles.severityRow}>
-              {['Low', 'Medium', 'High'].map(lev => (
-                <TouchableOpacity
-                  key={lev}
-                  style={[styles.severityPill, severity === lev && styles.severityPillActive]}
-                  onPress={() => setSeverity(lev)}
-                >
-                  <Text style={[styles.severityText, severity === lev && styles.severityTextActive]}>{lev}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Description *</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Detailed description of symptoms..."
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              value={description}
-              onChangeText={setDescription}
-            />
-          </View>
-
-          <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-            <Text style={styles.buttonText}>Save Symptom</Text>
-          </TouchableOpacity>
+    <SafeAreaView style={styles.safe}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <View style={styles.field}>
+          <Text style={styles.label}>Symptom Name *</Text>
+          <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="e.g. Yellow leaf spots" />
         </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Crop Name *</Text>
+          <TextInput style={styles.input} value={cropName} onChangeText={setCropName} placeholder="e.g. Paddy, Banana" />
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Severity</Text>
+          <View style={styles.severityRow}>
+            {severities.map(s => (
+              <TouchableOpacity key={s} style={[styles.sevBtn, severity === s && styles.sevBtnActive]} onPress={() => setSeverity(s)}>
+                <Text style={[styles.sevText, severity === s && styles.sevTextActive]}>{s}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Description</Text>
+          <TextInput style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} placeholder="Visual symptoms..." multiline numberOfLines={3} textAlignVertical="top" />
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Cause</Text>
+          <TextInput style={styles.input} value={cause} onChangeText={setCause} placeholder="Fungal / bacterial / nutrient deficiency..." />
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Remedy</Text>
+          <TextInput style={[styles.input, styles.textArea]} value={remedy} onChangeText={setRemedy} placeholder="Treatment steps..." multiline numberOfLines={3} textAlignVertical="top" />
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Prevention</Text>
+          <TextInput style={styles.input} value={prevention} onChangeText={setPrevention} placeholder="Preventive measures..." />
+        </View>
+        <TouchableOpacity style={[styles.button, loading && { opacity: 0.7 }]} onPress={handleSave} disabled={loading}>
+          <Text style={styles.buttonText}>{loading ? 'Saving...' : 'Add Symptom'}</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  content: { padding: SPACING.md },
-  card: {
-    backgroundColor: '#FFF', padding: SPACING.lg, borderRadius: BORDER_RADIUS.lg,
-    elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5
-  },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: SPACING.xl, textAlign: 'center' },
-  field: { marginBottom: SPACING.lg },
-  label: { fontSize: 14, color: '#333', marginBottom: 8, fontWeight: '500' },
-  input: { backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: BORDER_RADIUS.md, padding: 12, fontSize: 15 },
-  severityRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  severityPill: { flex: 1, paddingVertical: 10, marginHorizontal: 4, borderRadius: BORDER_RADIUS.md, backgroundColor: '#F0F0F0', alignItems: 'center' },
-  severityPillActive: { backgroundColor: COLORS.primary },
-  severityText: { color: '#666', fontWeight: 'bold' },
-  severityTextActive: { color: '#FFF' },
-  textArea: { height: 100 },
-  button: { backgroundColor: COLORS.primary, padding: 16, borderRadius: BORDER_RADIUS.md, alignItems: 'center', marginTop: SPACING.sm },
-  buttonText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+  safe:          { flex: 1, backgroundColor: COLORS.background },
+  container:     { padding: SPACING.lg },
+  field:         { marginBottom: SPACING.lg },
+  label:         { fontSize: 14, color: COLORS.text, marginBottom: SPACING.xs, fontWeight: '600' },
+  input:         { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, fontSize: 16, color: COLORS.text },
+  textArea:      { height: 80 },
+  severityRow:   { flexDirection: 'row', gap: 10 },
+  sevBtn:        { flex: 1, padding: 10, borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center', backgroundColor: COLORS.surface },
+  sevBtnActive:  { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  sevText:       { fontSize: 14, color: COLORS.text, fontWeight: '600' },
+  sevTextActive: { color: '#fff' },
+  button:        { backgroundColor: COLORS.primary, padding: SPACING.md, borderRadius: BORDER_RADIUS.md, alignItems: 'center', marginTop: SPACING.md },
+  buttonText:    { color: 'white', fontSize: 16, fontWeight: 'bold' },
 });

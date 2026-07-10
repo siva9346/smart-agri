@@ -1,197 +1,147 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
-import { User, Phone, MapPin, Calendar, MessageSquare, CheckCircle, ArrowLeft } from 'lucide-react-native';
+import { MessageSquare, CheckCircle } from 'lucide-react-native';
+import { api } from '../../../services/api';
+import { LoadingState, ErrorState } from '../../../components/States';
+
+interface ApiEnquiry {
+  enquiryId: string;
+  farmerId: string;
+  subject: string;
+  message: string;
+  status: string;
+  response?: string;
+  respondedAt?: string;
+  createdAt: string;
+}
+
+const STATUS_COLOR: Record<string, string> = { OPEN: '#e67e22', IN_PROGRESS: '#2980b9', RESOLVED: '#27ae60', CLOSED: '#7f8c8d' };
+const STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
 
 export const EnquiryDetailsScreen = ({ route, navigation }: any) => {
-  const { enquiry } = route.params;
-  const [isPending, setIsPending] = useState(enquiry.status === 'Pending');
+  const { enquiryId, onUpdate } = route.params;
+  const [enquiry,  setEnquiry]  = useState<ApiEnquiry | null>(null);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState<string | null>(null);
+  const [response, setResponse] = useState('');
+  const [saving,   setSaving]   = useState(false);
 
-  const handleMarkCompleted = () => {
-    Alert.alert('Confirm', 'Mark this enquiry as completed?', [
-      { text: 'Cancel', style: 'cancel' },
-      { 
-        text: 'Yes', 
-        onPress: () => {
-          setIsPending(false);
-          const updatedEnquiry = { ...enquiry, status: 'Completed' };
-          Alert.alert('Success', 'Enquiry marked as completed.', [
-            { text: 'OK', onPress: () => navigation.navigate('EnquiryList', { updatedEnquiry }) }
-          ]);
-        }
-      }
-    ]);
+  useEffect(() => {
+    api.get<ApiEnquiry>(`/enquiries/${enquiryId}`)
+      .then(data => { setEnquiry(data); setResponse(data.response ?? ''); })
+      .catch(err => setError(err?.message ?? 'Failed to load enquiry'))
+      .finally(() => setLoading(false));
+  }, [enquiryId]);
+
+  const handleUpdate = async (status?: string) => {
+    if (!enquiry) return;
+    setSaving(true);
+    try {
+      const updated = await api.put<ApiEnquiry>(`/enquiries/${enquiryId}`, {
+        ...(response.trim() ? { response: response.trim() } : {}),
+        ...(status ? { status } : {}),
+      });
+      setEnquiry(updated);
+      Alert.alert('Success', 'Enquiry updated');
+      onUpdate?.();
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'Failed to update');
+    } finally {
+      setSaving(false);
+    }
   };
 
+  if (loading) return <LoadingState />;
+  if (error || !enquiry) return <ErrorState error={error ?? 'Not found'} />;
+
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Back Header */}
-      <View style={styles.screenHeader}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <ArrowLeft size={24} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Enquiry Info</Text>
-      </View>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.subject}>{enquiry.subject}</Text>
+          <View style={[styles.badge, { backgroundColor: (STATUS_COLOR[enquiry.status] ?? '#666') + '20' }]}>
+            <Text style={[styles.badgeText, { color: STATUS_COLOR[enquiry.status] ?? '#666' }]}>{enquiry.status}</Text>
+          </View>
+        </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        
-        <View style={styles.headerCard}>
-          <Text style={styles.enquiryId}>ID: {enquiry.id}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: isPending ? '#FFF3E0' : '#E8F5E9' }]}>
-            <Text style={[styles.statusText, { color: isPending ? '#E65100' : '#2E7D32' }]}>
-              {isPending ? 'Pending' : 'Completed'}
-            </Text>
+        <Text style={styles.date}>{enquiry.createdAt.split('T')[0]}</Text>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Enquiry</Text>
+          <Text style={styles.message}>{enquiry.message}</Text>
+        </View>
+
+        {enquiry.response ? (
+          <View style={[styles.section, styles.responseSection]}>
+            <Text style={styles.sectionTitle}>Admin Response</Text>
+            <Text style={styles.responseText}>{enquiry.response}</Text>
+            {enquiry.respondedAt ? <Text style={styles.date}>Responded: {enquiry.respondedAt.split('T')[0]}</Text> : null}
+          </View>
+        ) : null}
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Update Status</Text>
+          <View style={styles.statusRow}>
+            {STATUSES.map(s => (
+              <TouchableOpacity
+                key={s}
+                style={[styles.statusBtn, enquiry.status === s && styles.statusBtnActive]}
+                onPress={() => handleUpdate(s)}
+                disabled={saving}
+              >
+                <Text style={[styles.statusBtnText, enquiry.status === s && styles.statusBtnTextActive]}>{s}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Farmer Info</Text>
-          <View style={styles.detailRow}>
-            <User size={18} color="#666" style={styles.icon} />
-            <Text style={styles.detailText}>{enquiry.userName}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Phone size={18} color="#666" style={styles.icon} />
-            <Text style={styles.detailText}>{enquiry.phone}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <MapPin size={18} color="#666" style={styles.icon} />
-            <Text style={styles.detailText}>{enquiry.village}</Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Enquiry Details</Text>
-          <View style={styles.detailRow}>
-            <Calendar size={18} color="#666" style={styles.icon} />
-            <Text style={styles.detailText}>Submitted on: {enquiry.date}</Text>
-          </View>
-          <View style={styles.messageBox}>
-            <MessageSquare size={18} color="#999" style={{ marginBottom: 8 }} />
-            <Text style={styles.messageText}>{enquiry.fullMessage}</Text>
-          </View>
-        </View>
-
-        {isPending && (
-          <TouchableOpacity style={styles.completeBtn} onPress={handleMarkCompleted}>
-            <CheckCircle size={20} color="#FFF" style={{ marginRight: 8 }} />
-            <Text style={styles.completeBtnText}>Mark as Completed</Text>
+          <Text style={styles.sectionTitle}>Admin Reply</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            value={response}
+            onChangeText={setResponse}
+            placeholder="Write your response to the farmer..."
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+          />
+          <TouchableOpacity
+            style={[styles.button, saving && { opacity: 0.7 }]}
+            onPress={() => handleUpdate()}
+            disabled={saving}
+          >
+            <CheckCircle size={18} color="#fff" />
+            <Text style={styles.buttonText}>{saving ? 'Saving...' : 'Send Response'}</Text>
           </TouchableOpacity>
-        )}
-
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F7FA',
-  },
-  screenHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEE',
-  },
-  backBtn: {
-    marginRight: SPACING.md,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  content: {
-    padding: SPACING.md,
-  },
-  headerCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
-    marginBottom: SPACING.md,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-  },
-  enquiryId: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  section: {
-    backgroundColor: '#FFF',
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.lg,
-    marginBottom: SPACING.md,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: SPACING.md,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  icon: {
-    marginRight: 10,
-  },
-  detailText: {
-    fontSize: 15,
-    color: '#444',
-  },
-  messageBox: {
-    backgroundColor: '#F9FAFB',
-    padding: SPACING.md,
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginTop: SPACING.sm,
-  },
-  messageText: {
-    fontSize: 15,
-    color: '#333',
-    lineHeight: 22,
-  },
-  completeBtn: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.success,
-    padding: SPACING.lg,
-    borderRadius: BORDER_RADIUS.lg,
-    marginTop: SPACING.lg,
-    elevation: 2,
-  },
-  completeBtnText: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
+  safe:             { flex: 1, backgroundColor: COLORS.background },
+  container:        { padding: SPACING.lg },
+  header:           { flexDirection: 'row', alignItems: 'center', marginBottom: 4, gap: 10 },
+  subject:          { flex: 1, fontSize: 20, fontWeight: 'bold', color: COLORS.text },
+  badge:            { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  badgeText:        { fontSize: 12, fontWeight: 'bold' },
+  date:             { fontSize: 12, color: COLORS.textSecondary, marginBottom: SPACING.md },
+  section:          { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.md },
+  sectionTitle:     { fontSize: 13, fontWeight: 'bold', color: COLORS.textSecondary, textTransform: 'uppercase', marginBottom: 8 },
+  message:          { fontSize: 15, color: COLORS.text, lineHeight: 22 },
+  responseSection:  { borderLeftWidth: 3, borderLeftColor: COLORS.primary },
+  responseText:     { fontSize: 14, color: COLORS.text, lineHeight: 22 },
+  statusRow:        { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  statusBtn:        { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#f5f5f5' },
+  statusBtnActive:  { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  statusBtnText:    { fontSize: 12, color: COLORS.text, fontWeight: '600' },
+  statusBtnTextActive:{ color: '#fff' },
+  input:            { borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, fontSize: 15, color: COLORS.text, backgroundColor: '#f9f9f9' },
+  textArea:         { height: 100, marginBottom: SPACING.md },
+  button:           { backgroundColor: COLORS.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: SPACING.md, borderRadius: BORDER_RADIUS.md, gap: 8 },
+  buttonText:       { color: 'white', fontSize: 15, fontWeight: 'bold' },
 });

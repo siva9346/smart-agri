@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Modal, Alert,
+  Modal, Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
@@ -11,8 +11,34 @@ import {
   ArrowLeft, Plus, TrendingDown, CheckCircle, Clock,
 } from 'lucide-react-native';
 import { useSelector, useDispatch } from 'react-redux';
-import { RootState } from '../../store';
-import { completeCycle } from '../../store/cropSlice';
+import { RootState, AppDispatch } from '../../store';
+import { setCropCycles, setRecords, completeCycle } from '../../store/cropSlice';
+import { api } from '../../services/api';
+
+const adaptCycle = (c: any) => ({
+  id:        c.cycleId,
+  landId:    c.landId,
+  cropName:  c.cropName,
+  startDate: c.startDate,
+  endDate:   c.endDate || undefined,
+  area:      c.area || undefined,
+  cropAge:   0,
+  status:    (c.status === 'COMPLETED' ? 'completed' : 'active') as 'active' | 'completed' | 'current',
+});
+
+const adaptRecord = (r: any) => ({
+  id:           r.recordId,
+  cropCycleId:  r.cycleId,
+  date:         r.date,
+  stage:        r.stage || r.activityType || '',
+  costType:     r.costType || '',
+  activityType: r.activityType || undefined,
+  expense:      typeof r.expense === 'number' ? r.expense : parseFloat(r.expense ?? '0') || 0,
+  incomeAmount: r.incomeAmount != null ? (typeof r.incomeAmount === 'number' ? r.incomeAmount : parseFloat(r.incomeAmount)) : undefined,
+  quantity:     r.quantity || undefined,
+  notes:        r.notes || '',
+  image:        r.image || undefined,
+});
 
 // ─── Crop age helper ─────────────────────────────────────────────────────────
 
@@ -28,10 +54,36 @@ const getCropAge = (startDate: string): number => {
 
 export const CropCycleScreen = ({ route, navigation }: any) => {
   const { landId, landName } = route.params;
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
+  const [dataLoading, setDataLoading] = useState(true);
 
-  const allCycles = useSelector((state: RootState) => state.crop.cropCycles);
+  const allCycles        = useSelector((state: RootState) => state.crop.cropCycles);
   const recordsByCycleId = useSelector((state: RootState) => state.crop.recordsByCycleId);
+
+  const loadData = useCallback(async () => {
+    setDataLoading(true);
+    try {
+      const cyclesRes = await api.get<{ items: any[] }>(`/crop-cycles?landId=${landId}`);
+      const cycles    = cyclesRes.items.map(adaptCycle);
+
+      // Keep cycles for other lands + replace cycles for this land
+      const otherCycles = allCycles.filter(c => c.landId !== landId);
+      dispatch(setCropCycles([...otherCycles, ...cycles]));
+
+      // Load records for each cycle in parallel
+      await Promise.all(
+        cycles.map(cycle =>
+          api.get<{ items: any[] }>(`/records?cycleId=${cycle.id}`)
+            .then(res => dispatch(setRecords({ cycleId: cycle.id, records: res.items.map(adaptRecord) })))
+            .catch(() => {})
+        )
+      );
+    } catch { /* show empty state */ } finally {
+      setDataLoading(false);
+    }
+  }, [landId, dispatch]);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   const cropCycles = useMemo(
     () => allCycles.filter(cc => cc.landId === landId),
@@ -69,12 +121,13 @@ export const CropCycleScreen = ({ route, navigation }: any) => {
     setCompleteModal(true);
   };
 
-  const confirmComplete = () => {
-    dispatch(completeCycle({
-      id: completingId,
-      endDate: new Date().toISOString().split('T')[0],
-    }));
+  const confirmComplete = async () => {
+    const endDate = new Date().toISOString().split('T')[0];
     setCompleteModal(false);
+    try {
+      await api.put(`/crop-cycles/${completingId}`, { status: 'COMPLETED', endDate });
+    } catch { /* best-effort — update Redux anyway */ }
+    dispatch(completeCycle({ id: completingId, endDate }));
     Alert.alert('Cycle Completed', 'This cultivation cycle is now closed. All records are preserved.');
   };
 
@@ -184,6 +237,25 @@ export const CropCycleScreen = ({ route, navigation }: any) => {
       </Card>
     );
   };
+
+  if (dataLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.screenHeader}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <ArrowLeft size={22} color={COLORS.text} />
+          </TouchableOpacity>
+          <View style={styles.headerText}>
+            <Text style={styles.headerTitle}>{landName}</Text>
+            <Text style={styles.headerSub}>Cultivation Cycles</Text>
+          </View>
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
