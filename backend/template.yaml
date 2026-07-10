@@ -35,7 +35,7 @@ Parameters:
   JwtSecret:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /naveena/jwt-secret
-    Description: JWT signing secret stored in SSM Parameter Store
+    Description: JWT signing secret stored in SSM Parameter Store (must be type String — SecureString is not supported here, and ssm-secure dynamic references are not supported in Lambda env vars)
 
 Resources:
 
@@ -62,7 +62,7 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref UsersTable
       Events:
-        Root: { Type: HttpApi, Properties: { Path: /auth/{proxy+}, Method: ANY, ApiId: !Ref Api } }
+        Root: { Type: HttpApi, Properties: { Path: "/auth/{proxy+}", Method: ANY, ApiId: !Ref Api } }
 
   # ── Farmers ──────────────────────────────────────────────────────────────────
   FarmersFunction:
@@ -75,7 +75,7 @@ Resources:
             TableName: !Ref UsersTable
       Events:
         Root: { Type: HttpApi, Properties: { Path: /farmers,         Method: ANY, ApiId: !Ref Api } }
-        Sub:  { Type: HttpApi, Properties: { Path: /farmers/{proxy+}, Method: ANY, ApiId: !Ref Api } }
+        Sub:  { Type: HttpApi, Properties: { Path: "/farmers/{proxy+}", Method: ANY, ApiId: !Ref Api } }
 
   # ── Lands ─────────────────────────────────────────────────────────────────────
   LandsFunction:
@@ -88,7 +88,7 @@ Resources:
             TableName: !Ref LandsTable
       Events:
         Root: { Type: HttpApi, Properties: { Path: /lands,          Method: ANY, ApiId: !Ref Api } }
-        Sub:  { Type: HttpApi, Properties: { Path: /lands/{proxy+},  Method: ANY, ApiId: !Ref Api } }
+        Sub:  { Type: HttpApi, Properties: { Path: "/lands/{proxy+}",  Method: ANY, ApiId: !Ref Api } }
 
   # ── Crop Cycles ───────────────────────────────────────────────────────────────
   CropCyclesFunction:
@@ -101,7 +101,7 @@ Resources:
             TableName: !Ref CropCyclesTable
       Events:
         Root: { Type: HttpApi, Properties: { Path: /crop-cycles,          Method: ANY, ApiId: !Ref Api } }
-        Sub:  { Type: HttpApi, Properties: { Path: /crop-cycles/{proxy+},  Method: ANY, ApiId: !Ref Api } }
+        Sub:  { Type: HttpApi, Properties: { Path: "/crop-cycles/{proxy+}",  Method: ANY, ApiId: !Ref Api } }
 
   # ── Daily Records ─────────────────────────────────────────────────────────────
   RecordsFunction:
@@ -114,7 +114,7 @@ Resources:
             TableName: !Ref DailyRecordsTable
       Events:
         Root: { Type: HttpApi, Properties: { Path: /records,          Method: ANY, ApiId: !Ref Api } }
-        Sub:  { Type: HttpApi, Properties: { Path: /records/{proxy+},  Method: ANY, ApiId: !Ref Api } }
+        Sub:  { Type: HttpApi, Properties: { Path: "/records/{proxy+}",  Method: ANY, ApiId: !Ref Api } }
 
   # ── Products ──────────────────────────────────────────────────────────────────
   ProductsFunction:
@@ -127,7 +127,7 @@ Resources:
             TableName: !Ref ProductsTable
       Events:
         Root: { Type: HttpApi, Properties: { Path: /products,          Method: ANY, ApiId: !Ref Api } }
-        Sub:  { Type: HttpApi, Properties: { Path: /products/{proxy+},  Method: ANY, ApiId: !Ref Api } }
+        Sub:  { Type: HttpApi, Properties: { Path: "/products/{proxy+}",  Method: ANY, ApiId: !Ref Api } }
 
   # ── Orders ────────────────────────────────────────────────────────────────────
   OrdersFunction:
@@ -142,7 +142,7 @@ Resources:
             TableName: !Ref ProductsTable   # needed for stock decrement on order create
       Events:
         Root: { Type: HttpApi, Properties: { Path: /orders,          Method: ANY, ApiId: !Ref Api } }
-        Sub:  { Type: HttpApi, Properties: { Path: /orders/{proxy+},  Method: ANY, ApiId: !Ref Api } }
+        Sub:  { Type: HttpApi, Properties: { Path: "/orders/{proxy+}",  Method: ANY, ApiId: !Ref Api } }
 
   # ── Expert Advice ─────────────────────────────────────────────────────────────
   AdviceFunction:
@@ -155,7 +155,7 @@ Resources:
             TableName: !Ref AdviceTable
       Events:
         Root: { Type: HttpApi, Properties: { Path: /advice,          Method: ANY, ApiId: !Ref Api } }
-        Sub:  { Type: HttpApi, Properties: { Path: /advice/{proxy+},  Method: ANY, ApiId: !Ref Api } }
+        Sub:  { Type: HttpApi, Properties: { Path: "/advice/{proxy+}",  Method: ANY, ApiId: !Ref Api } }
 
   # ── Notifications ─────────────────────────────────────────────────────────────
   NotificationsFunction:
@@ -168,7 +168,7 @@ Resources:
             TableName: !Ref NotificationsTable
       Events:
         Root: { Type: HttpApi, Properties: { Path: /notifications,          Method: ANY, ApiId: !Ref Api } }
-        Sub:  { Type: HttpApi, Properties: { Path: /notifications/{proxy+},  Method: ANY, ApiId: !Ref Api } }
+        Sub:  { Type: HttpApi, Properties: { Path: "/notifications/{proxy+}",  Method: ANY, ApiId: !Ref Api } }
 
   # ── Enquiries ─────────────────────────────────────────────────────────────────
   EnquiriesFunction:
@@ -181,7 +181,7 @@ Resources:
             TableName: !Ref EnquiriesTable
       Events:
         Root: { Type: HttpApi, Properties: { Path: /enquiries,          Method: ANY, ApiId: !Ref Api } }
-        Sub:  { Type: HttpApi, Properties: { Path: /enquiries/{proxy+},  Method: ANY, ApiId: !Ref Api } }
+        Sub:  { Type: HttpApi, Properties: { Path: "/enquiries/{proxy+}",  Method: ANY, ApiId: !Ref Api } }
 
   # ── Symptoms ──────────────────────────────────────────────────────────────────
   SymptomsFunction:
@@ -194,7 +194,7 @@ Resources:
             TableName: !Ref SymptomsTable
       Events:
         Root: { Type: HttpApi, Properties: { Path: /symptoms,          Method: ANY, ApiId: !Ref Api } }
-        Sub:  { Type: HttpApi, Properties: { Path: /symptoms/{proxy+},  Method: ANY, ApiId: !Ref Api } }
+        Sub:  { Type: HttpApi, Properties: { Path: "/symptoms/{proxy+}",  Method: ANY, ApiId: !Ref Api } }
 
   # ─────────────────────────────────────────────────────────────────────────────
   # DYNAMODB TABLES  (PAY_PER_REQUEST = on-demand, auto-scales to any load)

@@ -5,7 +5,8 @@ import boto3
 from boto3.dynamodb.conditions import Key, Attr  # noqa: F401 — re-exported for handlers
 
 # Module-level client — created once per container, reused across warm invocations.
-_resource = boto3.resource('dynamodb')
+_endpoint_url = os.environ.get('DYNAMODB_ENDPOINT_URL')
+_resource = boto3.resource('dynamodb', endpoint_url=_endpoint_url) if _endpoint_url else boto3.resource('dynamodb')
 
 TABLES = {
     'users':         os.environ['USERS_TABLE'],
