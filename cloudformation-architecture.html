@@ -1,0 +1,684 @@
+<title>How CloudFormation Runs Naveena Uzhavan</title>
+<style>
+  :root {
+    --paper: #F3F6F4;
+    --panel: #FFFFFF;
+    --panel-2: #EDF2EF;
+    --ink: #12181A;
+    --muted: #56655F;
+    --border: #D9E2DE;
+    --accent: #1E6B62;
+    --accent-ink: #0F4842;
+    --accent-soft: #E4EFEC;
+    --success: #2E7D4F;
+    --success-soft: #E3F1E7;
+    --warning: #9C6B1F;
+    --warning-soft: #F5EAD8;
+    --shadow: 0 1px 2px rgba(18, 24, 26, 0.04), 0 8px 24px -12px rgba(18, 24, 26, 0.12);
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #10161A;
+    --panel: #171F23;
+    --panel-2: #1C262A;
+    --ink: #E7EEEC;
+    --muted: #90A39D;
+    --border: #2A3438;
+    --accent: #4FBDAE;
+    --accent-ink: #BFF0E6;
+    --accent-soft: rgba(79, 189, 174, 0.12);
+    --success: #5FBE84;
+    --success-soft: rgba(95, 190, 132, 0.12);
+    --warning: #D9A24E;
+    --warning-soft: rgba(217, 162, 78, 0.12);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 28px -14px rgba(0, 0, 0, 0.6);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #10161A;
+      --panel: #171F23;
+      --panel-2: #1C262A;
+      --ink: #E7EEEC;
+      --muted: #90A39D;
+      --border: #2A3438;
+      --accent: #4FBDAE;
+      --accent-ink: #BFF0E6;
+      --accent-soft: rgba(79, 189, 174, 0.12);
+      --success: #5FBE84;
+      --success-soft: rgba(95, 190, 132, 0.12);
+      --warning: #D9A24E;
+      --warning-soft: rgba(217, 162, 78, 0.12);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 28px -14px rgba(0, 0, 0, 0.6);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  .mono {
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", "Liberation Mono", monospace;
+  }
+
+  .page {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    font-size: 17px;
+    line-height: 1.65;
+  }
+
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 3px;
+    margin-bottom: 18px;
+  }
+
+  h1 {
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+    font-size: clamp(26px, 4vw, 34px);
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    margin: 0 0 10px;
+    text-wrap: balance;
+    max-width: 20ch;
+  }
+
+  .lede {
+    color: var(--muted);
+    max-width: 62ch;
+    margin: 0 0 32px;
+    font-size: 18px;
+  }
+
+  .console {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    padding: 18px 22px;
+    margin-bottom: 56px;
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+    font-size: 13px;
+  }
+
+  .console-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .console-row:last-child { border-bottom: none; }
+  .console-key { color: var(--muted); letter-spacing: 0.02em; }
+  .console-val { color: var(--ink); text-align: right; word-break: break-all; }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 9px;
+    border-radius: 100px;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: var(--success-soft);
+    color: var(--success);
+    font-weight: 600;
+  }
+  .pill::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  section { margin-bottom: 64px; }
+
+  h2 {
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 6px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h3 {
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 14px;
+    text-wrap: balance;
+  }
+
+  p { margin: 0 0 16px; }
+  p.tight { max-width: 66ch; }
+
+  code, .tag {
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+    font-size: 0.86em;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    color: var(--accent-ink);
+  }
+
+  /* ---------- Diagram ---------- */
+
+  .diagram {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .ext-row {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+  }
+
+  .node {
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 14px;
+    text-align: center;
+  }
+
+  .node--client, .node--external {
+    background: var(--panel-2);
+    border: 1px dashed var(--border);
+    color: var(--muted);
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+    font-size: 13px;
+    max-width: 260px;
+  }
+
+  .arrow {
+    position: relative;
+    width: 2px;
+    height: 30px;
+    background: var(--border);
+    margin: 0 auto;
+  }
+  .arrow::after {
+    content: "";
+    position: absolute;
+    left: 50%; bottom: -1px;
+    transform: translateX(-50%);
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid var(--border);
+  }
+  .arrow--accent { background: var(--accent); }
+  .arrow--accent::after { border-top-color: var(--accent); }
+  .arrow--dashed {
+    background: repeating-linear-gradient(to bottom, var(--muted) 0 4px, transparent 4px 8px);
+  }
+  .arrow--dashed::after { border-top-color: var(--muted); }
+  .arrow-label {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--paper);
+    padding: 0 8px;
+    top: 50%;
+    margin-top: -7px;
+  }
+
+  .stack-boundary {
+    position: relative;
+    border: 1.5px solid var(--accent);
+    border-radius: 12px;
+    padding: 40px 24px 28px;
+    background: linear-gradient(180deg, var(--accent-soft), transparent 40%);
+  }
+
+  .boundary-label {
+    position: absolute;
+    top: -13px;
+    left: 20px;
+    background: var(--paper);
+    padding: 0 10px;
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--accent-ink);
+    font-weight: 600;
+  }
+
+  .gateway-node {
+    background: var(--panel);
+    border: 1.5px solid var(--accent);
+    box-shadow: var(--shadow);
+    border-radius: 8px;
+    padding: 16px 20px;
+    max-width: 460px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .gateway-node .name {
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .gateway-node .sub {
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .layer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin: 0 auto;
+  }
+
+  .chip {
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+    font-size: 12.5px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 11px;
+    box-shadow: var(--shadow);
+  }
+  .layer--compute .chip { border-color: var(--accent); }
+  .layer--data .chip { border-color: var(--warning); }
+
+  .layer-caption {
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 10px;
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+  }
+
+  .control-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px dashed var(--border);
+  }
+  .control-chip {
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+    font-size: 11.5px;
+    color: var(--muted);
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 5px 12px;
+  }
+
+  /* ---------- Steps ---------- */
+
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .step {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 18px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .step:first-child { padding-top: 0; }
+  .step:last-child { border-bottom: none; }
+  .step-num {
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .step h4 {
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+    font-size: 14.5px;
+    margin: 3px 0 8px;
+  }
+  .step p { margin: 0; max-width: 64ch; }
+
+  /* ---------- Inventory table ---------- */
+
+  .inventory {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+  }
+  @media (max-width: 640px) {
+    .inventory { grid-template-columns: 1fr; }
+    .step { grid-template-columns: 34px 1fr; }
+  }
+
+  .inv-col h3 { font-size: 15px; margin-bottom: 12px; }
+  .inv-list {
+    list-style: none;
+    margin: 0; padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--panel);
+  }
+  .inv-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    padding: 9px 13px;
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+    font-size: 12.5px;
+    border-bottom: 1px solid var(--border);
+  }
+  .inv-list li:last-child { border-bottom: none; }
+  .inv-list .route {
+    color: var(--muted);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .table-scroll { overflow-x: auto; }
+
+  footer {
+    margin-top: 72px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 13px;
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+  }
+
+  a { color: var(--accent-ink); }
+</style>
+
+<div class="page">
+
+  <span class="eyebrow">Infrastructure Walkthrough</span>
+  <h1>How CloudFormation runs Naveena&nbsp;Uzhavan</h1>
+  <p class="lede">
+    One template, one command, and AWS builds — or rebuilds — the entire backend:
+    11 Lambda functions, 10 DynamoDB tables, and the API Gateway that connects
+    them to your app. Here's what actually happens underneath <code>sam deploy</code>,
+    using the real stack we deployed together.
+  </p>
+
+  <div class="console">
+    <div class="console-row"><span class="console-key">stack</span><span class="console-val">naveena-uzhavan</span></div>
+    <div class="console-row"><span class="console-key">region</span><span class="console-val">ap-south-1</span></div>
+    <div class="console-row"><span class="console-key">status</span><span class="console-val"><span class="pill">CREATE_COMPLETE</span></span></div>
+    <div class="console-row"><span class="console-key">api endpoint</span><span class="console-val">oe2hznr4xi.execute-api.ap-south-1.amazonaws.com/v1</span></div>
+    <div class="console-row"><span class="console-key">account</span><span class="console-val">964604399680</span></div>
+  </div>
+
+  <section>
+    <h2>The architecture</h2>
+    <p class="tight">
+      Everything inside the teal border below is one CloudFormation stack —
+      created, tracked, and updatable as a single unit. The app never talks to
+      DynamoDB directly, and Lambda functions have no address of their own:
+      API Gateway is the only door in.
+    </p>
+
+    <div class="diagram">
+      <div class="node node--client">React Native / Expo client</div>
+      <div class="arrow arrow--accent"><span class="arrow-label">HTTPS + JWT</span></div>
+
+      <div class="stack-boundary">
+        <span class="boundary-label">CloudFormation stack · naveena-uzhavan</span>
+
+        <div class="gateway-node">
+          <div class="name">Api — HttpApi</div>
+          <div class="sub">id oe2hznr4xi · stage v1 · CORS: *</div>
+        </div>
+
+        <div class="arrow arrow--accent" style="margin-top:14px;"><span class="arrow-label">route match → invoke</span></div>
+
+        <div class="layer layer--compute">
+          <div class="chip">AuthFunction</div>
+          <div class="chip">FarmersFunction</div>
+          <div class="chip">LandsFunction</div>
+          <div class="chip">CropCyclesFunction</div>
+          <div class="chip">RecordsFunction</div>
+          <div class="chip">ProductsFunction</div>
+          <div class="chip">OrdersFunction</div>
+          <div class="chip">AdviceFunction</div>
+          <div class="chip">NotificationsFunction</div>
+          <div class="chip">EnquiriesFunction</div>
+          <div class="chip">SymptomsFunction</div>
+        </div>
+        <div class="layer-caption">11 Lambda functions (python3.12, arm64) — each with its own IAM execution role</div>
+
+        <div class="arrow" style="margin-top:14px;"><span class="arrow-label">boto3 · scoped IAM</span></div>
+
+        <div class="layer layer--data">
+          <div class="chip">naveena-users</div>
+          <div class="chip">naveena-lands</div>
+          <div class="chip">naveena-crop-cycles</div>
+          <div class="chip">naveena-daily-records</div>
+          <div class="chip">naveena-products</div>
+          <div class="chip">naveena-orders</div>
+          <div class="chip">naveena-advice</div>
+          <div class="chip">naveena-notifications</div>
+          <div class="chip">naveena-enquiries</div>
+          <div class="chip">naveena-symptoms</div>
+        </div>
+        <div class="layer-caption">10 DynamoDB tables — DeletionPolicy: Retain</div>
+
+        <div class="control-row">
+          <span class="control-chip">11× IAM execution role</span>
+          <span class="control-chip">11× CloudWatch Logs group</span>
+          <span class="control-chip">SSM · /naveena/jwt-secret</span>
+        </div>
+      </div>
+
+      <div class="ext-row" style="margin-top:22px;">
+        <div>
+          <div class="arrow arrow--dashed"><span class="arrow-label">sam build && sam deploy</span></div>
+          <div class="node node--external">GitHub Actions<br>OIDC role: naveena-uzhavan-github-deploy</div>
+        </div>
+        <div>
+          <div class="arrow arrow--dashed"><span class="arrow-label">code artifacts</span></div>
+          <div class="node node--external">S3 (deploy-time only)<br>aws-sam-cli-managed-default-…</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What sam deploy actually does — step by step</h2>
+    <div class="steps">
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div>
+          <h4>You declare the desired state</h4>
+          <p><code>backend/template.yaml</code> says what should exist — not how to create it. The
+          <code>Transform: AWS::Serverless-2016-10-31</code> line at the top is what turns this from a plain
+          CloudFormation template into a SAM template.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div>
+          <h4>sam build packages the code</h4>
+          <p>For each function, SAM installs <code>requirements.txt</code> against the matching
+          <code>python3.12</code> runtime and copies your handler source into <code>.aws-sam/build</code> —
+          one self-contained artifact per Lambda.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div>
+          <h4>sam deploy uploads artifacts to S3</h4>
+          <p>Each function's build is zipped and uploaded to a SAM-managed bucket
+          (<code>aws-sam-cli-managed-default-samclisourcebucket-…</code>), deduplicated by content hash —
+          this is why re-deploying unchanged code just says
+          <code>File with same data already exists, skipping upload</code>.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div>
+          <h4>The packaged template is submitted to CloudFormation</h4>
+          <p>SAM CLI rewrites every <code>CodeUri</code> to point at the uploaded S3 object, then calls
+          <code>CreateChangeSet</code> — still with the shorthand <code>AWS::Serverless::Function</code> /
+          <code>AWS::Serverless::HttpApi</code> resources intact.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">5</div>
+        <div>
+          <h4>CloudFormation expands the SAM transform</h4>
+          <p>Before diffing anything, CloudFormation runs the SAM macro server-side: each
+          <code>Function</code> becomes a real <code>Lambda::Function</code> + a generated <code>IAM::Role</code> +
+          a <code>Lambda::Permission</code>; the single <code>Api</code> resource becomes an
+          <code>ApiGatewayV2::Api</code> with all 11 routes baked into its auto-generated OpenAPI document.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">6</div>
+        <div>
+          <h4>The change set is computed</h4>
+          <p>CloudFormation diffs the expanded template against the current stack. On our first deploy that
+          meant 50+ lines of <code>+ Add</code> — every table, role, function, and permission. On a future
+          code-only change, this step would show just one <code>Modify</code> for the function that changed,
+          nothing for the untouched tables.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">7</div>
+        <div>
+          <h4>The change set executes, in dependency order</h4>
+          <p>DynamoDB tables and IAM roles first (nothing else depends on them existing), then Lambda
+          functions (need their role + S3 code), then the permissions and routes that let API Gateway
+          actually reach them. Every resource is tracked
+          <span class="pill" style="background:var(--warning-soft);color:var(--warning);">CREATE_IN_PROGRESS</span>
+          → <span class="pill">CREATE_COMPLETE</span> individually — if any one fails, the whole stack
+          automatically rolls back.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">8</div>
+        <div>
+          <h4>Outputs resolve, stack goes green</h4>
+          <p>Once every resource reports complete, the stack itself flips to <code>CREATE_COMPLETE</code> and
+          the <code>Outputs</code> block evaluates — <code>ApiUrl</code> is a <code>!Sub</code> that reads the
+          real, just-created API's ID: <code>oe2hznr4xi</code>.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">9</div>
+        <div>
+          <h4>The frontend catches up</h4>
+          <p><code>scripts/sync-api-url.sh</code> reads that same Output back out via
+          <code>describe-stacks</code> and writes it straight into <code>src/config.ts</code> — closing the
+          loop from infrastructure back to the app you ship.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>Resource inventory — what actually exists right now</h2>
+    <div class="inventory">
+      <div class="inv-col">
+        <h3>Lambda functions</h3>
+        <ul class="inv-list">
+          <li>AuthFunction <span class="route">/auth/*</span></li>
+          <li>FarmersFunction <span class="route">/farmers</span></li>
+          <li>LandsFunction <span class="route">/lands</span></li>
+          <li>CropCyclesFunction <span class="route">/crop-cycles</span></li>
+          <li>RecordsFunction <span class="route">/records</span></li>
+          <li>ProductsFunction <span class="route">/products</span></li>
+          <li>OrdersFunction <span class="route">/orders</span></li>
+          <li>AdviceFunction <span class="route">/advice</span></li>
+          <li>NotificationsFunction <span class="route">/notifications</span></li>
+          <li>EnquiriesFunction <span class="route">/enquiries</span></li>
+          <li>SymptomsFunction <span class="route">/symptoms</span></li>
+        </ul>
+      </div>
+      <div class="inv-col">
+        <h3>DynamoDB tables</h3>
+        <ul class="inv-list">
+          <li>naveena-users <span class="route">PK userId</span></li>
+          <li>naveena-lands <span class="route">PK landId</span></li>
+          <li>naveena-crop-cycles <span class="route">PK land+cycle</span></li>
+          <li>naveena-daily-records <span class="route">PK cycle+sort</span></li>
+          <li>naveena-products <span class="route">PK productId</span></li>
+          <li>naveena-orders <span class="route">PK orderId</span></li>
+          <li>naveena-advice <span class="route">PK adviceId</span></li>
+          <li>naveena-notifications <span class="route">PK notifId</span></li>
+          <li>naveena-enquiries <span class="route">PK enquiryId</span></li>
+          <li>naveena-symptoms <span class="route">PK symptomId</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Continuous deployment — the same process, triggered by git</h2>
+    <p class="tight">
+      <code>.github/workflows/deploy.yml</code> runs on every push to <code>master</code> that touches
+      <code>backend/**</code>. It does exactly steps 1–9 above, just from a GitHub-hosted runner instead of
+      your terminal: it assumes <code>naveena-uzhavan-github-deploy</code> via OpenID Connect (no long-lived
+      AWS keys stored in GitHub), then runs the identical <code>sam build && sam deploy</code>. CloudFormation
+      doesn't know or care whether the request came from your Mac or a GitHub runner — it diffs the template
+      against the live stack either way.
+    </p>
+    <p class="tight">
+      The one manual step left: add <code>AWS_DEPLOY_ROLE_ARN</code> as a repository secret on
+      <code>siva9346/smart-agri</code>, set to
+      <code>arn:aws:iam::964604399680:role/naveena-uzhavan-github-deploy</code>.
+    </p>
+  </section>
+
+  <footer>
+    naveena-uzhavan · ap-south-1 · generated from the live deployed stack
+  </footer>
+
+</div>
