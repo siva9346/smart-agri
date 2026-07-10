@@ -38,7 +38,10 @@ def parse_body(event: dict) -> dict:
     if not body:
         return {}
     try:
-        return json.loads(body)
+        # DynamoDB's boto3 layer rejects native Python floats outright, so
+        # decimal JSON numbers (area, price, expense, ...) must come in as
+        # Decimal from the start rather than crashing at put_item/update_item.
+        return json.loads(body, parse_float=decimal.Decimal)
     except Exception:
         return {}
 
