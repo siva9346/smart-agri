@@ -22,6 +22,8 @@ def handler(event, _ctx):
         m   = method(event)
         rid = path_param(event)
 
+        if m == 'OPTIONS':
+            return no_content()
         if rid:
             if m == 'GET':    return _get(event, rid)
             if m == 'PUT':    return _update(event, rid)

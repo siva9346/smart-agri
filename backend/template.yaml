@@ -36,6 +36,10 @@ Parameters:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /naveena/jwt-secret
     Description: JWT signing secret stored in SSM Parameter Store (must be type String — SecureString is not supported here, and ssm-secure dynamic references are not supported in Lambda env vars)
+  SesSenderEmail:
+    Type: String
+    Default: dev.sivaprasathv@gmail.com
+    Description: Verified SES sender identity used to email password-reset OTPs
 
 Resources:
 
@@ -58,9 +62,21 @@ Resources:
     Properties:
       Handler: handlers.auth.handler
       Description: Login and token verification
+      Environment:
+        Variables:
+          SES_SENDER_EMAIL: !Ref SesSenderEmail
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref UsersTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              # In SES sandbox mode, authorization is checked against both the
+              # sender identity and any recipient identity verified in this
+              # account, so this can't be scoped to SesSenderEmail alone.
+              Resource: !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/*'
       Events:
         Root: { Type: HttpApi, Properties: { Path: "/auth/{proxy+}", Method: ANY, ApiId: !Ref Api } }
 

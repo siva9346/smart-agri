@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
-import { ShoppingBag, Users, Package, MessageSquare, TrendingUp, CloudRain, Thermometer, Bell, BookOpen } from 'lucide-react-native';
+import { useSelector } from 'react-redux';
+import { ShoppingBag, Users, Package, MessageSquare, TrendingUp, CloudRain, Thermometer, Bell, BookOpen, UserPlus } from 'lucide-react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
 import { api } from '../../../services/api';
+import { RootState } from '../../../store';
 
 export const AdminDashboardScreen = ({ navigation }: any) => {
   const [stats, setStats] = useState({ totalOrders: 0, pendingOrders: 0, totalCustomers: 0, totalProducts: 0 });
+  const role = useSelector((state: RootState) => state.auth.user?.role);
 
   useEffect(() => {
     Promise.all([
@@ -33,6 +36,9 @@ export const AdminDashboardScreen = ({ navigation }: any) => {
     { title: 'Sales Report',  icon: TrendingUp,  screen: 'Admin',             color: '#c0392b' },
     { title: 'Notifications', icon: Bell,        screen: 'NotificationList',  color: '#7f8c8d' },
     { title: 'Expert Advice', icon: BookOpen,    screen: 'ExpertAdviceList',  color: '#16a085', badge: 'New' },
+    ...(role === 'SUPER_ADMIN'
+      ? [{ title: 'Add Admin', icon: UserPlus, screen: 'AddAdmin', color: '#34495e' }]
+      : []),
   ];
 
   return (

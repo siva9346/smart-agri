@@ -10,7 +10,7 @@ import time
 from boto3.dynamodb.conditions import Key, Attr
 
 from lib.db import table, encode_key, decode_key
-from lib.auth import require_auth, AuthError, ForbiddenError
+from lib.auth import require_auth, is_admin_role, AuthError, ForbiddenError
 from lib.response import (
     ok, created, no_content, bad_request, not_found, server_err,
     parse_body, method, path_param, query_param,
@@ -24,6 +24,8 @@ def handler(event, _ctx):
         m   = method(event)
         rid = path_param(event)
 
+        if m == 'OPTIONS':
+            return no_content()
         if rid:
             if m == 'GET':    return _get(event, rid)
             if m == 'PUT':    return _update(event, rid)
@@ -80,7 +82,7 @@ def _create(event):
         return bad_request('name is required')
 
     farmer_id = body.get('farmerId') or payload['userId']
-    if payload['role'] != 'ADMIN':
+    if not is_admin_role(payload['role']):
         farmer_id = payload['userId']
 
     land = {
@@ -104,7 +106,7 @@ def _get(event, land_id: str):
     item    = resp.get('Item')
     if not item:
         return not_found('Land not found')
-    if payload['role'] != 'ADMIN' and item['farmerId'] != payload['userId']:
+    if not is_admin_role(payload['role']) and item['farmerId'] != payload['userId']:
         from lib.response import forbidden
         return forbidden('Access denied')
     return ok(item)
@@ -117,7 +119,7 @@ def _update(event, land_id: str):
     item    = resp.get('Item')
     if not item:
         return not_found('Land not found')
-    if payload['role'] != 'ADMIN' and item['farmerId'] != payload['userId']:
+    if not is_admin_role(payload['role']) and item['farmerId'] != payload['userId']:
         from lib.response import forbidden
         return forbidden('Access denied')
 
@@ -143,7 +145,7 @@ def _delete(event, land_id: str):
     item    = resp.get('Item')
     if not item:
         return not_found('Land not found')
-    if payload['role'] != 'ADMIN' and item['farmerId'] != payload['userId']:
+    if not is_admin_role(payload['role']) and item['farmerId'] != payload['userId']:
         from lib.response import forbidden
         return forbidden('Access denied')
     tbl.delete_item(Key={'landId': land_id})

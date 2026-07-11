@@ -48,8 +48,22 @@ def require_auth(event: dict) -> dict:
         raise AuthError('Invalid token')
 
 
+ADMIN_ROLES = ('ADMIN', 'SUPER_ADMIN')
+
+
+def is_admin_role(role: str) -> bool:
+    return role in ADMIN_ROLES
+
+
 def require_admin(event: dict) -> dict:
     payload = require_auth(event)
-    if payload.get('role') != 'ADMIN':
+    if not is_admin_role(payload.get('role')):
         raise ForbiddenError('Admin only')
+    return payload
+
+
+def require_super_admin(event: dict) -> dict:
+    payload = require_auth(event)
+    if payload.get('role') != 'SUPER_ADMIN':
+        raise ForbiddenError('Super admin only')
     return payload

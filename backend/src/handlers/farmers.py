@@ -11,7 +11,7 @@ import bcrypt
 from boto3.dynamodb.conditions import Key, Attr
 
 from lib.db import table, encode_key, decode_key
-from lib.auth import require_auth, require_admin, AuthError, ForbiddenError
+from lib.auth import require_auth, require_admin, is_admin_role, AuthError, ForbiddenError
 from lib.response import (
     ok, created, no_content, bad_request, not_found, server_err,
     parse_body, method, path_param, query_param,
@@ -25,6 +25,8 @@ def handler(event, _ctx):
         m   = method(event)
         rid = path_param(event)  # farmer userId from /farmers/{proxy+}
 
+        if m == 'OPTIONS':
+            return no_content()
         if rid:
             if m == 'GET':    return _get(event, rid)
             if m == 'PUT':    return _update(event, rid)
@@ -84,6 +86,8 @@ def _create(event):
         return conflict('Phone already registered')
 
     pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    email = (body.get('email') or '').strip().lower()
+
     user = {
         'userId':       str(uuid.uuid4()),
         'name':         name,
@@ -94,13 +98,15 @@ def _create(event):
         'district':     body.get('district', ''),
         'createdAt':    time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
     }
+    if email:
+        user['email'] = email
     tbl.put_item(Item=user)
     return created(_safe(user))
 
 
 def _get(event, user_id: str):
     payload = require_auth(event)
-    if payload['role'] != 'ADMIN' and payload['userId'] != user_id:
+    if not is_admin_role(payload['role']) and payload['userId'] != user_id:
         from lib.response import forbidden
         return forbidden('Access denied')
 
@@ -113,7 +119,7 @@ def _get(event, user_id: str):
 
 def _update(event, user_id: str):
     payload = require_auth(event)
-    if payload['role'] != 'ADMIN' and payload['userId'] != user_id:
+    if not is_admin_role(payload['role']) and payload['userId'] != user_id:
         from lib.response import forbidden
         return forbidden('Access denied')
 
@@ -150,4 +156,4 @@ def _delete(event, user_id: str):
 
 
 def _safe(user: dict) -> dict:
-    return {k: v for k, v in user.items() if k != 'passwordHash'}
+    return {k: v for k, v in user.items() if k not in ('passwordHash', 'resetOtpHash', 'resetOtpExpiresAt')}

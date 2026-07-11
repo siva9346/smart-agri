@@ -11,7 +11,7 @@ import { loginSuccess } from '../../store/authSlice';
 import { AppDispatch } from '../../store';
 import { LoadingState } from '../../components/States';
 
-export const LoginScreen = () => {
+export const LoginScreen = ({ navigation }: any) => {
   const dispatch = useDispatch<AppDispatch>();
   const [phone, setPhone]       = useState('');
   const [password, setPassword] = useState('');
@@ -98,6 +98,14 @@ export const LoginScreen = () => {
           <TouchableOpacity style={styles.button} onPress={handleLogin}>
             <Text style={styles.buttonText}>Login</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity style={styles.linkButton} onPress={() => navigation.navigate('ForgotPassword')}>
+            <Text style={styles.linkText}>Forgot Password?</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.linkButton} onPress={() => navigation.navigate('Signup')}>
+            <Text style={styles.linkTextSecondary}>New here? Create a customer account</Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -167,5 +175,19 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  linkButton: {
+    alignItems: 'center',
+    marginTop: SPACING.lg,
+  },
+  linkText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  linkTextSecondary: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

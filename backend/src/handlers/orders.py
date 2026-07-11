@@ -11,7 +11,7 @@ from decimal import Decimal
 from boto3.dynamodb.conditions import Key
 
 from lib.db import table, encode_key, decode_key
-from lib.auth import require_auth, require_admin, AuthError, ForbiddenError
+from lib.auth import require_auth, require_admin, is_admin_role, AuthError, ForbiddenError
 from lib.response import (
     ok, created, no_content, bad_request, not_found, server_err,
     parse_body, method, path_param, query_param,
@@ -26,6 +26,8 @@ def handler(event, _ctx):
         m   = method(event)
         rid = path_param(event)
 
+        if m == 'OPTIONS':
+            return no_content()
         if rid:
             if m == 'GET':    return _get(event, rid)
             if m == 'PUT':    return _update(event, rid)
@@ -165,7 +167,7 @@ def _get(event, order_id: str):
     item    = resp.get('Item')
     if not item:
         return not_found('Order not found')
-    if payload['role'] != 'ADMIN' and item['customerId'] != payload['userId']:
+    if not is_admin_role(payload['role']) and item['customerId'] != payload['userId']:
         from lib.response import forbidden
         return forbidden('Access denied')
     return ok(item)
@@ -191,7 +193,7 @@ def _update(event, order_id: str):
         if item['status'] not in ('PENDING',):
             return bad_request('Order cannot be cancelled at this stage')
 
-    elif payload['role'] == 'ADMIN':
+    elif is_admin_role(payload['role']):
         if status and status not in VALID_STATUSES:
             return bad_request(f'Invalid status. Use: {", ".join(VALID_STATUSES)}')
 

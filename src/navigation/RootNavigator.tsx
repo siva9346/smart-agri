@@ -20,6 +20,7 @@ import { AddStockScreen as AdminAddStockScreen } from '../features/admin/screens
 import { EditStockScreen } from '../features/admin/screens/EditStockScreen';
 import { CustomerListScreen } from '../features/admin/screens/CustomerListScreen';
 import { AddCustomerScreen as AdminAddCustomerScreen } from '../features/admin/screens/AddCustomerScreen';
+import { AddAdminScreen } from '../features/admin/screens/AddAdminScreen';
 import { CustomerDetailsScreen } from '../features/admin/screens/CustomerDetailsScreen';
 import { EnquiryListScreen } from '../features/admin/screens/EnquiryListScreen';
 import { EnquiryDetailsScreen } from '../features/admin/screens/EnquiryDetailsScreen';
@@ -208,6 +209,7 @@ const AdminNavigator = ({ onLogout, role }: any) => (
     <AdminStack.Screen name="AddStock" component={AdminAddStockScreen} options={{ title: 'Add Inventory' }} />
     <AdminStack.Screen name="EditStock" component={EditStockScreen} options={{ title: 'Modify Inventory' }} />
     <AdminStack.Screen name="CreateCustomer" component={AdminAddCustomerScreen} options={{ title: 'Register Farmer' }} />
+    <AdminStack.Screen name="AddAdmin" component={AddAdminScreen} options={{ title: 'Add Admin' }} />
     <AdminStack.Screen name="CustomerDetails" component={CustomerDetailsScreen} options={{ title: 'Profile' }} />
     <AdminStack.Screen name="ManagePrice" component={AdminActionPlaceholder} options={{ title: 'Update Price' }} />
     <AdminStack.Screen name="UpdateRain" component={RainUpdates} options={{ title: 'Update Weather Data' }} />
@@ -245,7 +247,7 @@ const AdminNavigator = ({ onLogout, role }: any) => (
 export const RootNavigator = ({ role, onLogout }: { role: UserRole, onLogout: () => void }) => {
   return (
     <MainStack.Navigator screenOptions={{ headerShown: Boolean(false) }}>
-      {role === 'ADMIN' ? (
+      {role === 'ADMIN' || role === 'SUPER_ADMIN' ? (
         <MainStack.Screen name="AdminRoot">
              {props => <AdminNavigator {...props} onLogout={onLogout} role={role} />}
         </MainStack.Screen>

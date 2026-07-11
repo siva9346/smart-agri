@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import { store, RootState, AppDispatch } from './src/store';
 import { logout } from './src/store/authSlice';
-import { LoginScreen } from './src/features/auth/LoginScreen';
+import { AuthNavigator } from './src/navigation/AuthNavigator';
 import { RootNavigator } from './src/navigation/RootNavigator';
 
 function AppContent() {
@@ -18,7 +18,7 @@ function AppContent() {
       {user ? (
         <RootNavigator role={user.role} onLogout={() => dispatch(logout())} />
       ) : (
-        <LoginScreen />
+        <AuthNavigator />
       )}
     </>
   );
