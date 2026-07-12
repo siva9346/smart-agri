@@ -9,9 +9,11 @@ import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.utils import formataddr, formatdate, make_msgid
 
 GMAIL_ADDRESS = os.environ['GMAIL_ADDRESS']
 GMAIL_APP_PASSWORD = os.environ['GMAIL_APP_PASSWORD']
+SENDER_NAME = 'Naveena Uzhavan'
 
 
 def handler(event, _ctx):
@@ -27,9 +29,15 @@ def handler(event, _ctx):
     else:
         msg = MIMEText(body, 'plain')
 
+    # A named From, plus Date/Message-ID/Reply-To, makes the message look like
+    # normal person-to-person mail instead of an anonymous script send — this
+    # is one of the biggest factors spam filters weigh for personal-Gmail SMTP.
     msg['Subject'] = subject
-    msg['From'] = GMAIL_ADDRESS
+    msg['From'] = formataddr((SENDER_NAME, GMAIL_ADDRESS))
     msg['To'] = to_email
+    msg['Reply-To'] = GMAIL_ADDRESS
+    msg['Date'] = formatdate(localtime=True)
+    msg['Message-ID'] = make_msgid(domain='gmail.com')
 
     with smtplib.SMTP('smtp.gmail.com', 587, timeout=8) as server:
         server.starttls()
