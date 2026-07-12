@@ -50,6 +50,7 @@ import {
 } from '../features/cropTracking';
 import { ExpertAdviceScreen } from '../features/farmer/ExpertAdviceScreen';
 import { ExpertAdviceListScreen } from '../features/admin/screens/ExpertAdviceListScreen';
+import { ProfileScreen } from '../features/profile/ProfileScreen';
 import { COLORS, SPACING } from '../theme';
 import { UserRole } from '../types/domain';
 
@@ -69,10 +70,15 @@ const HeaderTitle = () => (
   </View>
 );
 
-const HeaderRight = ({ onLogout }: { onLogout: () => void }) => (
-  <TouchableOpacity onPress={onLogout} style={styles.logoutButton}>
-    <LogOut color={COLORS.error} size={22} />
-  </TouchableOpacity>
+const HeaderRight = ({ onLogout, navigation }: { onLogout: () => void; navigation: any }) => (
+  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+    <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.logoutButton}>
+      <UserIcon color={COLORS.primary} size={22} />
+    </TouchableOpacity>
+    <TouchableOpacity onPress={onLogout} style={styles.logoutButton}>
+      <LogOut color={COLORS.error} size={22} />
+    </TouchableOpacity>
+  </View>
 );
 
 const FarmerTabs = () => (
@@ -106,8 +112,8 @@ const FarmerTabs = () => (
   </Tab.Navigator>
 );
 
-const getCommonOptions = (onLogout: () => void) => ({
-  headerRight: () => <HeaderRight onLogout={onLogout} />,
+const getCommonOptions = (onLogout: () => void, navigation: any) => ({
+  headerRight: () => <HeaderRight onLogout={onLogout} navigation={navigation} />,
   headerShadowVisible: Boolean(false),
   headerStyle: { backgroundColor: COLORS.background },
   headerTitleAlign: 'center' as const,
@@ -116,7 +122,7 @@ const getCommonOptions = (onLogout: () => void) => ({
 const FarmerNavigator = ({ onLogout }: any) => (
   <FarmerStack.Navigator
     screenOptions={({ navigation }) => ({
-      ...getCommonOptions(onLogout),
+      ...getCommonOptions(onLogout, navigation),
       headerShown: true,
       headerLeft: ({ canGoBack }) => canGoBack ? (
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.circularBackBtn}>
@@ -169,13 +175,14 @@ const FarmerNavigator = ({ onLogout }: any) => (
     <FarmerStack.Screen name="ExpenseBreakdown" component={ExpenseBreakdownScreen} options={{ title: 'Breakdown' }} />
     <FarmerStack.Screen name="AddCropCycle" component={AddCropCycleScreen} options={{ title: 'New Cultivation' }} />
     <FarmerStack.Screen name="ExpertAdvice" component={ExpertAdviceScreen} options={{ title: 'Expert Advice' }} />
+    <FarmerStack.Screen name="Profile" component={ProfileScreen} options={{ title: 'My Profile' }} />
   </FarmerStack.Navigator>
 );
 
 const AdminNavigator = ({ onLogout, role }: any) => (
   <AdminStack.Navigator
     screenOptions={({ navigation }) => ({
-      ...getCommonOptions(onLogout),
+      ...getCommonOptions(onLogout, navigation),
       headerShown: true,
       headerLeft: ({ canGoBack }) => canGoBack ? (
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.circularBackBtn}>
@@ -241,6 +248,7 @@ const AdminNavigator = ({ onLogout, role }: any) => (
     <AdminStack.Screen name="ExpenseBreakdown" component={ExpenseBreakdownScreen} options={{ title: 'Breakdown' }} />
     <AdminStack.Screen name="AddCropCycle" component={AddCropCycleScreen} options={{ title: 'New Cultivation' }} />
     <AdminStack.Screen name="ExpertAdviceList" component={ExpertAdviceListScreen} options={{ title: 'Expert Advice Requests' }} />
+    <AdminStack.Screen name="Profile" component={ProfileScreen} options={{ title: 'My Profile' }} />
   </AdminStack.Navigator>
 );
 

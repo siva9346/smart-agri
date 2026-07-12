@@ -36,10 +36,14 @@ Parameters:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /naveena/jwt-secret
     Description: JWT signing secret stored in SSM Parameter Store (must be type String — SecureString is not supported here, and ssm-secure dynamic references are not supported in Lambda env vars)
-  SesSenderEmail:
-    Type: String
-    Default: dev.sivaprasathv@gmail.com
-    Description: Verified SES sender identity used to email password-reset OTPs
+  GmailAddress:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /naveena/gmail-address
+    Description: Gmail address EmailFunction sends OTP emails from (via smtplib, not SES)
+  GmailAppPassword:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /naveena/gmail-app-password
+    Description: 16-char Gmail App Password for GmailAddress (Google Account > Security > App Passwords). Same SSM String limitation as JwtSecret above.
 
 Resources:
 
@@ -64,21 +68,26 @@ Resources:
       Description: Login and token verification
       Environment:
         Variables:
-          SES_SENDER_EMAIL: !Ref SesSenderEmail
+          EMAIL_FUNCTION_NAME: !Ref EmailFunction
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref UsersTable
-        - Statement:
-            - Effect: Allow
-              Action:
-                - ses:SendEmail
-                - ses:SendRawEmail
-              # In SES sandbox mode, authorization is checked against both the
-              # sender identity and any recipient identity verified in this
-              # account, so this can't be scoped to SesSenderEmail alone.
-              Resource: !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/*'
+        - LambdaInvokePolicy:
+            FunctionName: !Ref EmailFunction
       Events:
         Root: { Type: HttpApi, Properties: { Path: "/auth/{proxy+}", Method: ANY, ApiId: !Ref Api } }
+
+  # ── Email (internal only — no API Gateway route) ─────────────────────────────
+  EmailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.email.handler
+      Description: Sends transactional email via Gmail SMTP (smtplib) — invoked by other Lambdas only
+      Timeout: 10
+      Environment:
+        Variables:
+          GMAIL_ADDRESS: !Ref GmailAddress
+          GMAIL_APP_PASSWORD: !Ref GmailAppPassword
 
   # ── Farmers ──────────────────────────────────────────────────────────────────
   FarmersFunction:

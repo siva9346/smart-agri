@@ -1,6 +1,8 @@
 """
 POST /auth/login  – verify phone + password, return JWT
 GET  /auth/me     – return current user from JWT
+PUT  /auth/me     – fill in missing profile details (name/email/village/district) once; locks after complete
+PUT  /auth/change-password – change own password (current + new)
 POST /auth/register – create a new farmer account (self-registration)
 POST /auth/register-admin – SUPER_ADMIN creates the one regular ADMIN account
 POST /auth/forgot-password/send-otp   – email a 6-digit OTP to the phone's registered address
@@ -8,6 +10,7 @@ POST /auth/forgot-password/verify-otp – verify the OTP, set a new password
 """
 import os
 import re
+import json
 import time
 import uuid
 import secrets
@@ -25,9 +28,9 @@ from lib.response import (
 EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 OTP_TTL_SECONDS = 10 * 60
 MAX_ADMINS = 2  # 1 SUPER_ADMIN + 1 ADMIN
-SES_SENDER_EMAIL = os.environ.get('SES_SENDER_EMAIL', '')
+EMAIL_FUNCTION_NAME = os.environ.get('EMAIL_FUNCTION_NAME', '')
 
-_ses = boto3.client('sesv2', region_name=os.environ.get('AWS_REGION', 'ap-south-1'))
+_lambda = boto3.client('lambda')
 
 
 def handler(event, _ctx):
@@ -49,6 +52,10 @@ def handler(event, _ctx):
             return _register_admin(event)
         if proxy == 'me' and m == 'GET':
             return _me(event)
+        if proxy == 'me' and m == 'PUT':
+            return _update_me(event)
+        if proxy == 'change-password' and m == 'PUT':
+            return _change_password(event)
         if proxy == 'forgot-password/send-otp' and m == 'POST':
             return _forgot_password_send_otp(event)
         if proxy == 'forgot-password/verify-otp' and m == 'POST':
@@ -270,6 +277,85 @@ def _me(event):
     return ok(_safe_user(user))
 
 
+def _profile_is_complete(user: dict) -> bool:
+    if not user.get('email'):
+        return False
+    if user.get('role') == 'FARMER':
+        if not user.get('village') or not user.get('district'):
+            return False
+    return True
+
+
+def _update_me(event):
+    payload = require_auth(event)
+    tbl = table('users')
+    resp = tbl.get_item(Key={'userId': payload['userId']})
+    user = resp.get('Item')
+    if not user:
+        return not_found('User not found')
+
+    if _profile_is_complete(user):
+        return conflict('Profile is already complete. Contact support to change these details.')
+
+    body = parse_body(event)
+    updates = {}
+
+    if (body.get('name') or '').strip():
+        updates['name'] = body['name'].strip()
+
+    if (body.get('email') or '').strip():
+        email = body['email'].strip().lower()
+        if not EMAIL_RE.match(email):
+            return bad_request('invalid email address')
+        updates['email'] = email
+
+    if user.get('role') == 'FARMER':
+        if (body.get('village') or '').strip():
+            updates['village'] = body['village'].strip()
+        if (body.get('district') or '').strip():
+            updates['district'] = body['district'].strip()
+
+    if not updates:
+        return bad_request('Nothing to update')
+
+    tbl.update_item(
+        Key={'userId': user['userId']},
+        UpdateExpression='SET ' + ', '.join(f'#{k} = :{k}' for k in updates),
+        ExpressionAttributeNames={f'#{k}': k for k in updates},
+        ExpressionAttributeValues={f':{k}': v for k, v in updates.items()},
+    )
+    return ok(_safe_user({**user, **updates}))
+
+
+def _change_password(event):
+    payload = require_auth(event)
+    body = parse_body(event)
+    current_password = body.get('currentPassword') or ''
+    new_password = body.get('newPassword') or ''
+
+    if not current_password or not new_password:
+        return bad_request('currentPassword and newPassword required')
+    if len(new_password) < 6:
+        return bad_request('password must be at least 6 characters')
+
+    tbl = table('users')
+    resp = tbl.get_item(Key={'userId': payload['userId']})
+    user = resp.get('Item')
+    if not user:
+        return not_found('User not found')
+
+    if not bcrypt.checkpw(current_password.encode(), user['passwordHash'].encode()):
+        return unauthorized('Current password is incorrect')
+
+    new_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+    tbl.update_item(
+        Key={'userId': user['userId']},
+        UpdateExpression='SET passwordHash = :h',
+        ExpressionAttributeValues={':h': new_hash},
+    )
+    return ok({'message': 'Password updated successfully'})
+
+
 def _safe_user(user: dict) -> dict:
     return {k: v for k, v in user.items() if k not in ('passwordHash', 'resetOtpHash', 'resetOtpExpiresAt')}
 
@@ -283,22 +369,52 @@ def _mask_email(email: str) -> str:
     return f'{masked}@{domain}'
 
 
+def _otp_email_html(otp: str) -> str:
+    minutes = OTP_TTL_SECONDS // 60
+    return f"""\
+<div style="background-color:#F5F5F5;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;background:#FFFFFF;border-radius:12px;overflow:hidden;">
+    <tr>
+      <td style="background-color:#2E7D32;padding:24px 32px;text-align:center;">
+        <span style="color:#FFFFFF;font-size:20px;font-weight:bold;">Naveena Uzhavan</span>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:32px;">
+        <p style="color:#212121;font-size:16px;margin:0 0 16px;">Use the code below to reset your password.</p>
+        <div style="background:#F5F5F5;border-radius:8px;padding:20px;text-align:center;margin:0 0 16px;">
+          <span style="font-size:32px;letter-spacing:8px;font-weight:bold;color:#2E7D32;">{otp}</span>
+        </div>
+        <p style="color:#757575;font-size:14px;margin:0 0 8px;">This code expires in {minutes} minutes.</p>
+        <p style="color:#757575;font-size:14px;margin:0;">If you did not request this, you can safely ignore this email.</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:16px 32px;background:#F5F5F5;text-align:center;">
+        <span style="color:#9E9E9E;font-size:12px;">Naveena Uzhavan &middot; Smart Agri</span>
+      </td>
+    </tr>
+  </table>
+</div>"""
+
+
 def _send_otp_email(to_email: str, otp: str):
-    _ses.send_email(
-        FromEmailAddress=SES_SENDER_EMAIL,
-        Destination={'ToAddresses': [to_email]},
-        Content={
-            'Simple': {
-                'Subject': {'Data': 'Naveena Uzhavan – Password Reset OTP'},
-                'Body': {
-                    'Text': {
-                        'Data': (
-                            f'Your password reset OTP is: {otp}\n\n'
-                            f'This code expires in {OTP_TTL_SECONDS // 60} minutes. '
-                            'If you did not request this, you can ignore this email.'
-                        )
-                    }
-                },
-            }
-        },
+    minutes = OTP_TTL_SECONDS // 60
+    payload = json.dumps({
+        'to': to_email,
+        'subject': 'Naveena Uzhavan – Password Reset OTP',
+        'body': (
+            f'Your password reset OTP is: {otp}\n\n'
+            f'This code expires in {minutes} minutes. '
+            'If you did not request this, you can ignore this email.'
+        ),
+        'html': _otp_email_html(otp),
+    })
+    resp = _lambda.invoke(
+        FunctionName=EMAIL_FUNCTION_NAME,
+        InvocationType='RequestResponse',
+        Payload=payload.encode(),
     )
+    result = json.loads(resp['Payload'].read() or b'{}')
+    if resp.get('FunctionError') or not result.get('success'):
+        raise RuntimeError(f'Failed to send OTP email: {result}')
