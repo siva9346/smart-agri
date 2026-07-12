@@ -369,46 +369,20 @@ def _mask_email(email: str) -> str:
     return f'{masked}@{domain}'
 
 
-def _otp_email_html(otp: str) -> str:
-    minutes = OTP_TTL_SECONDS // 60
-    return f"""\
-<div style="background-color:#F5F5F5;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;background:#FFFFFF;border-radius:12px;overflow:hidden;">
-    <tr>
-      <td style="background-color:#2E7D32;padding:24px 32px;text-align:center;">
-        <span style="color:#FFFFFF;font-size:20px;font-weight:bold;">Naveena Uzhavan</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:32px;">
-        <p style="color:#212121;font-size:16px;margin:0 0 16px;">Use the code below to reset your password.</p>
-        <div style="background:#F5F5F5;border-radius:8px;padding:20px;text-align:center;margin:0 0 16px;">
-          <span style="font-size:32px;letter-spacing:8px;font-weight:bold;color:#2E7D32;">{otp}</span>
-        </div>
-        <p style="color:#757575;font-size:14px;margin:0 0 8px;">This code expires in {minutes} minutes.</p>
-        <p style="color:#757575;font-size:14px;margin:0;">If you did not request this, you can safely ignore this email.</p>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:16px 32px;background:#F5F5F5;text-align:center;">
-        <span style="color:#9E9E9E;font-size:12px;">Naveena Uzhavan &middot; Smart Agri</span>
-      </td>
-    </tr>
-  </table>
-</div>"""
-
-
 def _send_otp_email(to_email: str, otp: str):
     minutes = OTP_TTL_SECONDS // 60
+    # Plain text on purpose — styled HTML with a boxed code closely matches the
+    # visual pattern of phishing templates, which hurts spam-filter scoring
+    # more than it helps readability for a short one-time code.
     payload = json.dumps({
         'to': to_email,
-        'subject': 'Naveena Uzhavan – Password Reset OTP',
+        'subject': 'Your Naveena Uzhavan verification code',
         'body': (
-            f'Your password reset OTP is: {otp}\n\n'
-            f'This code expires in {minutes} minutes. '
-            'If you did not request this, you can ignore this email.'
+            f'Hi,\n\n'
+            f'Your verification code is {otp}\n\n'
+            f'It expires in {minutes} minutes. If you did not request this, you can ignore this message.\n\n'
+            f'– Naveena Uzhavan'
         ),
-        'html': _otp_email_html(otp),
     })
     resp = _lambda.invoke(
         FunctionName=EMAIL_FUNCTION_NAME,
