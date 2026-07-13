@@ -134,9 +134,14 @@ Resources:
     Properties:
       Handler: handlers.records.handler
       Description: Daily farming activity records (expenses, harvests, symptoms)
+      Environment:
+        Variables:
+          PHOTOS_BUCKET: !Ref RecordPhotosBucket
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DailyRecordsTable
+        - S3WritePolicy:
+            BucketName: !Ref RecordPhotosBucket
       Events:
         Root: { Type: HttpApi, Properties: { Path: /records,          Method: ANY, ApiId: !Ref Api } }
         Sub:  { Type: HttpApi, Properties: { Path: "/records/{proxy+}",  Method: ANY, ApiId: !Ref Api } }
@@ -220,6 +225,38 @@ Resources:
       Events:
         Root: { Type: HttpApi, Properties: { Path: /symptoms,          Method: ANY, ApiId: !Ref Api } }
         Sub:  { Type: HttpApi, Properties: { Path: "/symptoms/{proxy+}",  Method: ANY, ApiId: !Ref Api } }
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # S3  (crop-activity record photos — public-read objects, uploaded via RecordsFunction)
+  # ─────────────────────────────────────────────────────────────────────────────
+  RecordPhotosBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub 'naveena-record-photos-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: false
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: false
+      CorsConfiguration:
+        CorsRules:
+          - AllowedMethods: [GET]
+            AllowedOrigins: ['*']
+            AllowedHeaders: ['*']
+
+  RecordPhotosBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref RecordPhotosBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicReadRecordPhotos
+            Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub '${RecordPhotosBucket.Arn}/*'
 
   # ─────────────────────────────────────────────────────────────────────────────
   # DYNAMODB TABLES  (PAY_PER_REQUEST = on-demand, auto-scales to any load)

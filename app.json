@@ -15,7 +15,9 @@
       "supportsTablet": true,
       "icon": "./assets/icon.png",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "We need your location to show accurate local weather for your farm."
+        "NSLocationWhenInUseUsageDescription": "We need your location to show accurate local weather for your farm.",
+        "NSCameraUsageDescription": "We need camera access so you can attach a photo when adding a crop activity record.",
+        "NSPhotoLibraryUsageDescription": "We need photo library access so you can attach a photo when adding a crop activity record."
       }
     },
     "android": {
@@ -27,13 +29,25 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "READ_EXTERNAL_STORAGE"
       ],
       "package": "com.siva_4693.agrimanageapp"
     },
     "web": {
       "favicon": "./assets/logo.png"
     },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Naveena Uzhavan to access your photos to attach a picture to crop activity records.",
+          "cameraPermission": "Allow Naveena Uzhavan to access your camera to capture a picture for crop activity records."
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "b6c0c03c-68c2-4830-adb6-c1792295847f"

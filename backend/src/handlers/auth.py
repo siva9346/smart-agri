@@ -4,7 +4,7 @@ GET  /auth/me     – return current user from JWT
 PUT  /auth/me     – fill in missing profile details (name/email/village/district) once; locks after complete
 PUT  /auth/change-password – change own password (current + new)
 POST /auth/register – create a new farmer account (self-registration)
-POST /auth/register-admin – SUPER_ADMIN creates the one regular ADMIN account
+POST /auth/register-admin – SUPER_ADMIN creates the one remaining admin account (role: ADMIN or SUPER_ADMIN), capped at 2 admin-level accounts total
 POST /auth/forgot-password/send-otp   – email a 6-digit OTP to the phone's registered address
 POST /auth/forgot-password/verify-otp – verify the OTP, set a new password
 """
@@ -152,6 +152,7 @@ def _register_admin(event):
     phone = (body.get('phone') or '').strip()
     email = (body.get('email') or '').strip().lower()
     password = body.get('password') or ''
+    role = (body.get('role') or 'ADMIN').strip().upper()
 
     if not name or not phone or not password or not email:
         return bad_request('name, phone, email, and password required')
@@ -159,6 +160,8 @@ def _register_admin(event):
         return bad_request('password must be at least 6 characters')
     if not EMAIL_RE.match(email):
         return bad_request('invalid email address')
+    if role not in ('ADMIN', 'SUPER_ADMIN'):
+        return bad_request('role must be ADMIN or SUPER_ADMIN')
 
     tbl = table('users')
     admin_count = tbl.scan(
@@ -185,7 +188,7 @@ def _register_admin(event):
         'phone':        phone,
         'email':        email,
         'passwordHash': pw_hash,
-        'role':         'ADMIN',
+        'role':         role,
         'createdAt':    time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
     }
     tbl.put_item(Item=user)

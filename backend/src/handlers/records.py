@@ -1,14 +1,19 @@
 """
 GET    /records?cycleId=x  – list records for a cycle (date-sorted, paginated)
 POST   /records             – create daily record
+POST   /records/upload-photo – upload a base64 activity photo to S3, returns its URL
 GET    /records/{id}        – get record by recordId (via GSI)
 PUT    /records/{id}        – update record
 DELETE /records/{id}        – delete record
 
 Table design: PK=cycleId, SK=date#recordId  → O(1) query by cycle, sorted by date.
 """
+import os
 import uuid
 import time
+import base64
+import binascii
+import boto3
 from boto3.dynamodb.conditions import Key
 
 from lib.db import table, encode_key, decode_key
@@ -19,6 +24,11 @@ from lib.response import (
 )
 
 PAGE_SIZE = 100
+MAX_PHOTO_BYTES = 8 * 1024 * 1024  # 8MB
+PHOTOS_BUCKET = os.environ.get('PHOTOS_BUCKET', '')
+AWS_REGION = os.environ.get('AWS_REGION', 'ap-south-1')
+
+_s3 = boto3.client('s3')
 
 
 def handler(event, _ctx):
@@ -28,6 +38,8 @@ def handler(event, _ctx):
 
         if m == 'OPTIONS':
             return no_content()
+        if rid == 'upload-photo' and m == 'POST':
+            return _upload_photo(event)
         if rid:
             if m == 'GET':    return _get(event, rid)
             if m == 'PUT':    return _update(event, rid)
@@ -102,6 +114,33 @@ def _create(event):
     record = {k: v for k, v in record.items() if v is not None}
     table('daily_records').put_item(Item=record)
     return created(record)
+
+
+def _upload_photo(event):
+    payload = require_auth(event)
+    body = parse_body(event)
+    image_b64 = body.get('image')
+    content_type = (body.get('contentType') or 'image/jpeg').strip()
+
+    if not image_b64:
+        return bad_request('image (base64) required')
+    if content_type not in ('image/jpeg', 'image/png'):
+        return bad_request('contentType must be image/jpeg or image/png')
+
+    try:
+        data = base64.b64decode(image_b64, validate=True)
+    except (binascii.Error, ValueError):
+        return bad_request('invalid base64 image data')
+
+    if len(data) > MAX_PHOTO_BYTES:
+        return bad_request(f'image too large (max {MAX_PHOTO_BYTES // (1024 * 1024)}MB)')
+
+    ext = 'png' if content_type == 'image/png' else 'jpg'
+    key = f"records/{payload['userId']}/{uuid.uuid4()}.{ext}"
+
+    _s3.put_object(Bucket=PHOTOS_BUCKET, Key=key, Body=data, ContentType=content_type)
+    url = f'https://{PHOTOS_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{key}'
+    return created({'url': url})
 
 
 def _get_by_record_id(record_id: str) -> dict | None:

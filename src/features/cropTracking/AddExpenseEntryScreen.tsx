@@ -10,8 +10,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Modal,
+  Image,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
 import {
   ArrowLeft,
@@ -192,7 +196,8 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
   const [incomeAmount, setIncomeAmount] = useState('');
   const [quantityInput, setQuantityInput] = useState('');
   const [notes, setNotes] = useState('');
-  const [imagePicked, setImagePicked] = useState(false);
+  const [image, setImage] = useState<{ uri: string; base64: string } | null>(null);
+  const [pickerVisible, setPickerVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -232,12 +237,76 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
     return Object.keys(e).length === 0;
   };
 
+  const openPickerSheet = () => setPickerVisible(true);
+  const closePickerSheet = () => setPickerVisible(false);
+  const removeImage = () => setImage(null);
+
+  const showPermissionDeniedAlert = (source: 'camera' | 'photo library') => {
+    Alert.alert(
+      'Permission Needed',
+      `Please allow ${source} access in Settings to attach a photo.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Open Settings', onPress: () => Linking.openSettings() },
+      ]
+    );
+  };
+
+  const pickFromCamera = async () => {
+    closePickerSheet();
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      showPermissionDeniedAlert('camera');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.5,
+      base64: true,
+    });
+    if (!result.canceled && result.assets?.[0]?.base64) {
+      setImage({ uri: result.assets[0].uri, base64: result.assets[0].base64 });
+    }
+  };
+
+  const pickFromGallery = async () => {
+    closePickerSheet();
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      showPermissionDeniedAlert('photo library');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.5,
+      base64: true,
+    });
+    if (!result.canceled && result.assets?.[0]?.base64) {
+      setImage({ uri: result.assets[0].uri, base64: result.assets[0].base64 });
+    }
+  };
+
   const handleSubmit = async () => {
     if (!validate()) return;
 
     const costTypeValue = activityType === 'Expense' ? expenseSubType : activityType;
     setSaving(true);
     try {
+      let imageUrl: string | undefined;
+      if (image) {
+        try {
+          const uploadRes = await api.post<{ url: string }>('/records/upload-photo', {
+            image: image.base64,
+            contentType: 'image/jpeg',
+          });
+          imageUrl = uploadRes.url;
+        } catch (err: any) {
+          Alert.alert('Photo Upload Failed', err?.message ?? 'Could not upload the photo. Please try again.');
+          setSaving(false);
+          return;
+        }
+      }
+
       const res = await api.post<any>('/records', {
         cycleId:      cropCycleId,
         date,
@@ -248,6 +317,7 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
         incomeAmount: showIncomeField && incomeAmount.trim() ? Number(incomeAmount) : undefined,
         quantity:     showIncomeField && quantityInput.trim() ? quantityInput.trim() : undefined,
         notes,
+        image:        imageUrl,
       });
       dispatch(addRecord(adaptRecord(res)));
       Alert.alert('Saved!', 'Activity record added successfully.', [
@@ -511,24 +581,21 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
                 <Text style={styles.sectionLabel}>Photo</Text>
                 <Text style={styles.optionalTag}>(optional)</Text>
               </View>
-              <TouchableOpacity
-                style={[styles.imageBox, imagePicked && styles.imageBoxPicked]}
-                onPress={() => setImagePicked(p => !p)}
-                activeOpacity={0.8}
-              >
-                {imagePicked ? (
-                  <View style={styles.imagePickedContent}>
-                    <View style={styles.imageThumb}>
-                      <Camera size={28} color={COLORS.primary} />
-                    </View>
-                    <Text style={styles.imagePickedLabel}>Photo attached</Text>
-                    <Text style={styles.imagePickedHint}>Tap to remove</Text>
-                    <View style={styles.removeTag}>
-                      <Trash2 size={11} color="#D32F2F" />
-                      <Text style={styles.removeTagText}>Remove</Text>
-                    </View>
-                  </View>
-                ) : (
+              {image ? (
+                <View style={styles.imagePreviewWrap}>
+                  <TouchableOpacity onPress={openPickerSheet} activeOpacity={0.85}>
+                    <Image source={{ uri: image.uri }} style={styles.imagePreview} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.removeImageBtn}
+                    onPress={removeImage}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Trash2 size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity style={styles.imageBox} onPress={openPickerSheet} activeOpacity={0.8}>
                   <View style={styles.imageEmptyContent}>
                     <View style={styles.cameraCircle}>
                       <Camera size={30} color={COLORS.textSecondary} />
@@ -538,8 +605,8 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
                       Capture crop condition, damage, or activity
                     </Text>
                   </View>
-                )}
-              </TouchableOpacity>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
@@ -567,6 +634,26 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
           <View style={{ height: 32 }} />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal visible={pickerVisible} transparent animationType="slide" onRequestClose={closePickerSheet}>
+        <TouchableOpacity style={styles.sheetOverlay} activeOpacity={1} onPress={closePickerSheet}>
+          <View style={styles.sheetContainer}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Add Photo</Text>
+            <TouchableOpacity style={styles.sheetOption} onPress={pickFromCamera} activeOpacity={0.7}>
+              <Text style={styles.sheetOptionEmoji}>📷</Text>
+              <Text style={styles.sheetOptionText}>Take Photo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sheetOption} onPress={pickFromGallery} activeOpacity={0.7}>
+              <Text style={styles.sheetOptionEmoji}>🖼</Text>
+              <Text style={styles.sheetOptionText}>Choose from Gallery</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sheetCancel} onPress={closePickerSheet} activeOpacity={0.7}>
+              <Text style={styles.sheetCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -814,11 +901,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  imageBoxPicked: {
-    backgroundColor: '#EDF7ED',
-    borderColor: COLORS.primary,
-    borderStyle: 'solid',
-  },
   imageEmptyContent: { alignItems: 'center' },
   cameraCircle: {
     width: 60,
@@ -831,28 +913,82 @@ const styles = StyleSheet.create({
   },
   imageEmptyLabel: { fontSize: 14, fontWeight: '600', color: '#555', marginBottom: 4 },
   imageEmptyHint: { fontSize: 12, color: '#999', textAlign: 'center' },
-  imagePickedContent: { alignItems: 'center' },
-  imageThumb: {
-    width: 60,
-    height: 60,
+  // Real image preview + remove button
+  imagePreviewWrap: {
+    position: 'relative',
     borderRadius: 12,
-    backgroundColor: '#C8E6C9',
+    overflow: 'visible',
+  },
+  imagePreview: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    backgroundColor: '#EAEDF1',
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#D32F2F',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
-  imagePickedLabel: { fontSize: 14, fontWeight: '700', color: COLORS.primary, marginBottom: 2 },
-  imagePickedHint: { fontSize: 11, color: '#777', marginBottom: 8 },
-  removeTag: {
+  // Photo bottom sheet
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  sheetContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 32,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#DDD',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  sheetOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFEBEE',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    gap: 14,
   },
-  removeTagText: { fontSize: 11, color: '#D32F2F', fontWeight: '600' },
+  sheetOptionEmoji: { fontSize: 22 },
+  sheetOptionText: { fontSize: 16, fontWeight: '600', color: '#2C2C2C' },
+  sheetCancel: {
+    marginTop: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: '#F2F4F7',
+    borderRadius: 12,
+  },
+  sheetCancelText: { fontSize: 15, fontWeight: '700', color: '#555' },
   // Hint
   selectHint: {
     alignItems: 'center',

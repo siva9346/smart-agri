@@ -5,11 +5,19 @@ import { api } from '../../../services/api';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
+type AdminRole = 'ADMIN' | 'SUPER_ADMIN';
+
+const ROLE_OPTIONS: { value: AdminRole; label: string; hint: string }[] = [
+  { value: 'ADMIN', label: 'Admin', hint: 'Full operational access. Cannot add more admins.' },
+  { value: 'SUPER_ADMIN', label: 'Super Admin', hint: 'Full access, and can also add the remaining admin account.' },
+];
+
 export const AddAdminScreen = ({ navigation }: any) => {
   const [name,     setName]     = useState('');
   const [phone,    setPhone]    = useState('');
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
+  const [role,     setRole]     = useState<AdminRole>('ADMIN');
   const [loading,  setLoading]  = useState(false);
 
   const handleSave = async () => {
@@ -41,8 +49,9 @@ export const AddAdminScreen = ({ navigation }: any) => {
         phone: trimmedPhone,
         email: trimmedEmail,
         password,
+        role,
       });
-      Alert.alert('Success', `Admin ${trimmedName} was created.`);
+      Alert.alert('Success', `${role === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'} ${trimmedName} was created.`);
       navigation.goBack();
     } catch (err: any) {
       Alert.alert('Error', err?.message ?? 'Failed to create admin');
@@ -55,8 +64,27 @@ export const AddAdminScreen = ({ navigation }: any) => {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.hint}>
-          This account gets full admin access but cannot create more admins. Only 1 regular admin is allowed.
+          Only 1 more admin-level account can be created in total. Choose the role for this account.
         </Text>
+
+        <View style={styles.field}>
+          <Text style={styles.label}>Role *</Text>
+          <View style={styles.roleList}>
+            {ROLE_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt.value}
+                style={[styles.roleOption, role === opt.value && styles.roleOptionSelected]}
+                onPress={() => setRole(opt.value)}
+              >
+                <Text style={[styles.roleOptionTitle, role === opt.value && styles.roleOptionTitleSelected]}>
+                  {opt.label}
+                </Text>
+                <Text style={styles.roleOptionHint}>{opt.hint}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
         <View style={styles.field}>
           <Text style={styles.label}>Full Name *</Text>
           <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="e.g. Priya Raman" />
@@ -74,7 +102,7 @@ export const AddAdminScreen = ({ navigation }: any) => {
           <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder="At least 6 characters" secureTextEntry />
         </View>
         <TouchableOpacity style={[styles.button, loading && { opacity: 0.7 }]} onPress={handleSave} disabled={loading}>
-          <Text style={styles.buttonText}>{loading ? 'Creating...' : 'Create Admin'}</Text>
+          <Text style={styles.buttonText}>{loading ? 'Creating...' : `Create ${role === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'}`}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -88,6 +116,21 @@ const styles = StyleSheet.create({
   field:      { marginBottom: SPACING.lg },
   label:      { fontSize: 14, color: COLORS.text, marginBottom: SPACING.xs, fontWeight: '600' },
   input:      { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, fontSize: 16, color: COLORS.text },
+  roleList:   { gap: SPACING.sm },
+  roleOption: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+  },
+  roleOptionSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: '#E8F5E9',
+  },
+  roleOptionTitle: { fontSize: 15, fontWeight: '700', color: COLORS.text, marginBottom: 2 },
+  roleOptionTitleSelected: { color: COLORS.primary },
+  roleOptionHint: { fontSize: 12, color: COLORS.textSecondary },
   button:     { backgroundColor: COLORS.primary, padding: SPACING.md, borderRadius: BORDER_RADIUS.md, alignItems: 'center', marginTop: SPACING.md },
   buttonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
 });

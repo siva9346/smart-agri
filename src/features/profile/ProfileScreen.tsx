@@ -179,7 +179,7 @@ export const ProfileScreen = () => {
               <>
                 <View style={styles.field}>
                   <Text style={styles.label}>Name</Text>
-                  <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Full name" />
+                  <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Full name" placeholderTextColor="#9E9E9E" />
                 </View>
                 <View style={styles.field}>
                   <Text style={styles.label}>Email</Text>
@@ -188,6 +188,7 @@ export const ProfileScreen = () => {
                     value={email}
                     onChangeText={setEmail}
                     placeholder="you@example.com"
+                    placeholderTextColor="#9E9E9E"
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -197,11 +198,11 @@ export const ProfileScreen = () => {
                   <>
                     <View style={styles.field}>
                       <Text style={styles.label}>Village</Text>
-                      <TextInput style={styles.input} value={village} onChangeText={setVillage} placeholder="e.g. Avadi" />
+                      <TextInput style={styles.input} value={village} onChangeText={setVillage} placeholder="e.g. Avadi" placeholderTextColor="#9E9E9E" />
                     </View>
                     <View style={styles.field}>
                       <Text style={styles.label}>District</Text>
-                      <TextInput style={styles.input} value={district} onChangeText={setDistrict} placeholder="e.g. Chennai" />
+                      <TextInput style={styles.input} value={district} onChangeText={setDistrict} placeholder="e.g. Chennai" placeholderTextColor="#9E9E9E" />
                     </View>
                   </>
                 )}
@@ -216,15 +217,15 @@ export const ProfileScreen = () => {
             <Text style={styles.sectionTitle}>Change Password</Text>
             <View style={styles.field}>
               <Text style={styles.label}>Current Password</Text>
-              <TextInput style={styles.input} value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry placeholder="Current password" />
+              <TextInput style={styles.input} value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry placeholder="Current password" placeholderTextColor="#9E9E9E" />
             </View>
             <View style={styles.field}>
               <Text style={styles.label}>New Password</Text>
-              <TextInput style={styles.input} value={newPassword} onChangeText={setNewPassword} secureTextEntry placeholder="At least 6 characters" />
+              <TextInput style={styles.input} value={newPassword} onChangeText={setNewPassword} secureTextEntry placeholder="At least 6 characters" placeholderTextColor="#9E9E9E" />
             </View>
             <View style={styles.field}>
               <Text style={styles.label}>Confirm New Password</Text>
-              <TextInput style={styles.input} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry placeholder="Re-enter new password" />
+              <TextInput style={styles.input} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry placeholder="Re-enter new password" placeholderTextColor="#9E9E9E" />
             </View>
             <TouchableOpacity
               style={[styles.button, styles.secondaryButton, changingPassword && { opacity: 0.7 }]}
