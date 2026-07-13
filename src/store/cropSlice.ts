@@ -12,6 +12,12 @@ export interface DailyRecord {
   quantity?: string;
   notes: string;
   image?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  // Admin Advice fields (activityType === 'Admin Advice')
+  title?: string;
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+  recommendedAction?: string;
 }
 
 export interface CropCycle {
@@ -70,6 +76,23 @@ const cropSlice = createSlice({
       if (!state.recordsByCycleId[cycleId]) state.recordsByCycleId[cycleId] = [];
       state.recordsByCycleId[cycleId].push(action.payload);
     },
+    updateRecord(state, action: PayloadAction<DailyRecord>) {
+      const updated = action.payload;
+      const i1 = state.dailyRecords.findIndex(r => r.id === updated.id);
+      if (i1 !== -1) state.dailyRecords[i1] = updated;
+      const list = state.recordsByCycleId[updated.cropCycleId];
+      if (list) {
+        const i2 = list.findIndex(r => r.id === updated.id);
+        if (i2 !== -1) list[i2] = updated;
+      }
+    },
+    removeRecord(state, action: PayloadAction<{ id: string; cropCycleId: string }>) {
+      const { id, cropCycleId } = action.payload;
+      state.dailyRecords = state.dailyRecords.filter(r => r.id !== id);
+      if (state.recordsByCycleId[cropCycleId]) {
+        state.recordsByCycleId[cropCycleId] = state.recordsByCycleId[cropCycleId].filter(r => r.id !== id);
+      }
+    },
     addCropCycle(state, action: PayloadAction<CropCycle>) {
       state.cropCycles.push(action.payload);
       if (!state.recordsByCycleId[action.payload.id]) {
@@ -91,6 +114,7 @@ const cropSlice = createSlice({
 });
 
 export const {
-  setCropCycles, setRecords, addRecord, addCropCycle, updateCropStatus, completeCycle,
+  setCropCycles, setRecords, addRecord, updateRecord, removeRecord,
+  addCropCycle, updateCropStatus, completeCycle,
 } = cropSlice.actions;
 export default cropSlice.reducer;

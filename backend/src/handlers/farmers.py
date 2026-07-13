@@ -47,6 +47,25 @@ def handler(event, _ctx):
         return server_err(e)
 
 
+def _count_by_farmer(table_name: str, active_only: bool = False) -> dict:
+    """Scan a table once and return {farmerId: count}, optionally counting only
+    ACTIVE crop cycles. Avoids N+1 network calls when enriching the farmer list."""
+    counts: dict = {}
+    kwargs = {}
+    if active_only:
+        kwargs['FilterExpression'] = Attr('status').eq('ACTIVE')
+    while True:
+        resp = table(table_name).scan(**kwargs)
+        for item in resp.get('Items', []):
+            fid = item.get('farmerId')
+            if fid:
+                counts[fid] = counts.get(fid, 0) + 1
+        if not resp.get('LastEvaluatedKey'):
+            break
+        kwargs['ExclusiveStartKey'] = resp['LastEvaluatedKey']
+    return counts
+
+
 def _list(event):
     require_admin(event)
     tbl = table('users')
@@ -59,8 +78,18 @@ def _list(event):
         kwargs['ExclusiveStartKey'] = decode_key(cursor)
 
     resp = tbl.scan(**kwargs)
+    land_counts  = _count_by_farmer('lands')
+    cycle_counts = _count_by_farmer('crop_cycles', active_only=True)
+
+    items = []
+    for u in resp.get('Items', []):
+        safe_u = _safe(u)
+        safe_u['landCount'] = land_counts.get(u['userId'], 0)
+        safe_u['activeCycleCount'] = cycle_counts.get(u['userId'], 0)
+        items.append(safe_u)
+
     return ok({
-        'items':     [_safe(u) for u in resp.get('Items', [])],
+        'items':     items,
         'nextCursor': encode_key(resp.get('LastEvaluatedKey')),
     })
 

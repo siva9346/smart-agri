@@ -8,7 +8,7 @@ import { RootState } from '../../store';
 
 // ─── Enum-to-display-label map for uppercase expense categories ───────────────
 
-const ENUM_LABEL: Record<string, string> = {
+export const ENUM_LABEL: Record<string, string> = {
   PLOUGHING:  'Ploughing',
   SEED:       'Seed',
   LABOUR:     'Labour',
@@ -23,7 +23,7 @@ const ENUM_LABEL: Record<string, string> = {
 
 // ─── Color / background maps — both display names and uppercase enums ─────────
 
-const ACTIVITY_COLOR: Record<string, string> = {
+export const ACTIVITY_COLOR: Record<string, string> = {
   // Activity types (display names)
   'Expense':            '#2E7D32',
   'Weekly Condition':   '#0097A7',
@@ -35,6 +35,8 @@ const ACTIVITY_COLOR: Record<string, string> = {
   'Labour Work':        '#E65100',
   'Harvest / Income':   '#1B7F3E',
   'Harvest':            '#F57F17',
+  'Growth Update':      '#00897B',
+  'Admin Advice':       '#5E35B1',
   'Other':              '#757575',
   // Expense category enums (uppercase)
   PLOUGHING:            '#5D4037',
@@ -59,7 +61,7 @@ const ACTIVITY_COLOR: Record<string, string> = {
   'Others':             '#757575',
 };
 
-const ACTIVITY_BG: Record<string, string> = {
+export const ACTIVITY_BG: Record<string, string> = {
   // Activity types (display names)
   'Expense':            '#E8F5E9',
   'Weekly Condition':   '#E0F7FA',
@@ -71,6 +73,8 @@ const ACTIVITY_BG: Record<string, string> = {
   'Labour Work':        '#FBE9E7',
   'Harvest / Income':   '#D4EDDA',
   'Harvest':            '#FFFDE7',
+  'Growth Update':      '#E0F2F1',
+  'Admin Advice':       '#EDE7F6',
   'Other':              '#F5F5F5',
   // Expense category enums (uppercase)
   PLOUGHING:            '#EFEBE9',
@@ -97,21 +101,21 @@ const ACTIVITY_BG: Record<string, string> = {
 
 // Activities where no financial amount is shown
 const OBSERVATION_TYPES = new Set([
-  'Weekly Condition', 'Symptom', 'Enquiry', 'Advice Received', 'Other',
+  'Weekly Condition', 'Symptom', 'Enquiry', 'Advice Received', 'Growth Update', 'Admin Advice', 'Other',
 ]);
 
-const isHarvest = (item: any): boolean =>
+export const isHarvest = (item: any): boolean =>
   item.activityType === 'Harvest / Income' || item.costType === 'Harvest / Income';
 
 // For Expense records, use the sub-category color; for others, use activityType color
-const getColor = (item: any): string => {
+export const getColor = (item: any): string => {
   if (item.activityType === 'Expense' && item.costType) {
     return ACTIVITY_COLOR[item.costType] ?? ACTIVITY_COLOR['Expense'] ?? COLORS.primary;
   }
   return ACTIVITY_COLOR[item.activityType] ?? ACTIVITY_COLOR[item.costType] ?? COLORS.primary;
 };
 
-const getBg = (item: any): string => {
+export const getBg = (item: any): string => {
   if (item.activityType === 'Expense' && item.costType) {
     return ACTIVITY_BG[item.costType] ?? ACTIVITY_BG['Expense'] ?? '#F5F5F5';
   }
@@ -119,20 +123,25 @@ const getBg = (item: any): string => {
 };
 
 // Show human-readable label; decode uppercase enums for expense sub-types
-const getLabel = (item: any): string => {
+export const getLabel = (item: any): string => {
   if (item.activityType === 'Expense' && item.costType) {
     return ENUM_LABEL[item.costType] ?? item.costType;
+  }
+  if (item.activityType === 'Growth Update' && item.stage) {
+    return item.stage;
   }
   return item.activityType || (ENUM_LABEL[item.costType] ?? item.costType) || item.stage || 'Activity';
 };
 
-const isObservation = (item: any): boolean =>
+const PRIORITY_COLOR: Record<string, string> = { LOW: '#388E3C', MEDIUM: '#F57C00', HIGH: '#D32F2F' };
+
+export const isObservation = (item: any): boolean =>
   OBSERVATION_TYPES.has(item.activityType) || OBSERVATION_TYPES.has(item.costType);
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export const CropTrackingScreen = ({ route, navigation }: any) => {
-  const { cropCycleId, cropName } = route.params || {};
+  const { cropCycleId, cropName, readOnly } = route.params || {};
 
   const recordsByCycleId = useSelector((state: RootState) => state.crop.recordsByCycleId);
 
@@ -170,6 +179,7 @@ export const CropTrackingScreen = ({ route, navigation }: any) => {
     const isLast = index === records.length - 1;
     const isObs = isObservation(item);
     const harv = isHarvest(item);
+    const isAdvice = item.activityType === 'Admin Advice';
     const showExpense = item.expense > 0 && !isObs && !harv;
     const showIncomeAmt = harv && (item.incomeAmount ?? 0) > 0;
     const hasDetails = !!item.notes || showExpense || showIncomeAmt;
@@ -183,7 +193,11 @@ export const CropTrackingScreen = ({ route, navigation }: any) => {
         </View>
 
         {/* Card */}
-        <View style={[styles.card, { borderLeftColor: color }]}>
+        <TouchableOpacity
+          style={[styles.card, { borderLeftColor: color }]}
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('ActivityDetails', { recordId: item.id, cropCycleId, readOnly })}
+        >
           {/* Top row: date + badge */}
           <View style={styles.cardTop}>
             <View style={styles.dateRow}>
@@ -198,6 +212,27 @@ export const CropTrackingScreen = ({ route, navigation }: any) => {
           {/* Body */}
           <View style={styles.cardBody}>
             <View style={styles.bodyLeft}>
+              {/* Admin Advice: title + priority badge + recommended action */}
+              {isAdvice && (
+                <View style={styles.adviceBlock}>
+                  <View style={styles.adviceTopRow}>
+                    <Text style={styles.adviceTitle} numberOfLines={1}>{item.title}</Text>
+                    {!!item.priority && (
+                      <View style={[styles.priorityBadge, { backgroundColor: (PRIORITY_COLOR[item.priority] ?? COLORS.primary) + '20' }]}>
+                        <Text style={[styles.priorityText, { color: PRIORITY_COLOR[item.priority] ?? COLORS.primary }]}>
+                          {item.priority}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  {!!item.recommendedAction && (
+                    <Text style={styles.adviceRecommended} numberOfLines={2}>
+                      Recommended: {item.recommendedAction}
+                    </Text>
+                  )}
+                </View>
+              )}
+
               {/* Notes */}
               {!!item.notes && (
                 <Text style={styles.notesText}>{item.notes}</Text>
@@ -241,10 +276,10 @@ export const CropTrackingScreen = ({ route, navigation }: any) => {
               </Text>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
     );
-  }, [records.length]);
+  }, [records.length, cropCycleId, readOnly, navigation]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -346,15 +381,17 @@ export const CropTrackingScreen = ({ route, navigation }: any) => {
         </View>
       </View>
 
-      {/* FAB */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.navigate('AddExpenseEntry', { cropCycleId })}
-        activeOpacity={0.85}
-      >
-        <Plus size={22} color="#FFF" />
-        <Text style={styles.fabText}>Add Record</Text>
-      </TouchableOpacity>
+      {/* FAB — hidden entirely in read-only (admin viewing a customer's cycle) */}
+      {!readOnly && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => navigation.navigate('AddExpenseEntry', { cropCycleId })}
+          activeOpacity={0.85}
+        >
+          <Plus size={22} color="#FFF" />
+          <Text style={styles.fabText}>Add Record</Text>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 };
@@ -456,6 +493,14 @@ const styles = StyleSheet.create({
   notesText: {
     fontSize: 13, color: '#444', lineHeight: 18, marginBottom: 6,
   },
+  adviceBlock: { marginBottom: 6 },
+  adviceTopRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4,
+  },
+  adviceTitle: { fontSize: 14, fontWeight: 'bold', color: '#1A1A1A', flex: 1, marginRight: 8 },
+  priorityBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5 },
+  priorityText: { fontSize: 9, fontWeight: 'bold', letterSpacing: 0.5 },
+  adviceRecommended: { fontSize: 12, color: '#5E35B1', fontStyle: 'italic', marginBottom: 4 },
   costRow: { flexDirection: 'row', alignItems: 'flex-end' },
   rupee: { fontSize: 13, fontWeight: 'bold', marginBottom: 2, marginRight: 2 },
   costAmount: { fontSize: 20, fontWeight: 'bold' },

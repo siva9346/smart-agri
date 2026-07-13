@@ -98,6 +98,10 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref UsersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref LandsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref CropCyclesTable
       Events:
         Root: { Type: HttpApi, Properties: { Path: /farmers,         Method: ANY, ApiId: !Ref Api } }
         Sub:  { Type: HttpApi, Properties: { Path: "/farmers/{proxy+}", Method: ANY, ApiId: !Ref Api } }
@@ -124,6 +128,8 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref CropCyclesTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref LandsTable
       Events:
         Root: { Type: HttpApi, Properties: { Path: /crop-cycles,          Method: ANY, ApiId: !Ref Api } }
         Sub:  { Type: HttpApi, Properties: { Path: "/crop-cycles/{proxy+}",  Method: ANY, ApiId: !Ref Api } }
@@ -140,6 +146,8 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DailyRecordsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref CropCyclesTable
         - S3WritePolicy:
             BucketName: !Ref RecordPhotosBucket
       Events:

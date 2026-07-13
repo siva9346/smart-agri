@@ -1,28 +1,35 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Alert } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
+import { api } from '../../../services/api';
 
 export const EditNotificationScreen = ({ route, navigation }: any) => {
   const { notification } = route.params;
 
-  const [title, setTitle] = useState(notification.title);
+  const [title, setTitle]     = useState(notification.title);
   const [message, setMessage] = useState(notification.message);
+  const [saving, setSaving]   = useState(false);
 
-  const handleUpdate = () => {
-    if (!title || !message) {
+  const handleUpdate = async () => {
+    if (!title.trim() || !message.trim()) {
       Alert.alert('Error', 'Please enter a title and message.');
       return;
     }
 
-    const updatedNotification = {
-      ...notification,
-      title,
-      message,
-    };
-
-    Alert.alert('Notification Edited', 'The global alert has been updated.', [
-      { text: 'OK', onPress: () => navigation.navigate('NotificationList', { updatedNotification }) }
-    ]);
+    setSaving(true);
+    try {
+      await api.put(`/notifications/${notification.notifId}`, {
+        title: title.trim(),
+        message: message.trim(),
+      });
+      Alert.alert('Notification Updated', 'The broadcast has been updated.', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'Failed to update notification');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -48,8 +55,8 @@ export const EditNotificationScreen = ({ route, navigation }: any) => {
             />
           </View>
 
-          <TouchableOpacity style={styles.button} onPress={handleUpdate}>
-            <Text style={styles.buttonText}>Update Notification</Text>
+          <TouchableOpacity style={[styles.button, saving && { opacity: 0.7 }]} onPress={handleUpdate} disabled={saving}>
+            <Text style={styles.buttonText}>{saving ? 'Updating...' : 'Update Notification'}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

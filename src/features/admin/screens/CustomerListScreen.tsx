@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
 import { api } from '../../../services/api';
 import { LoadingState, EmptyState, ErrorState } from '../../../components/States';
@@ -39,7 +40,7 @@ export const CustomerListScreen = ({ navigation }: any) => {
     }
   }, []);
 
-  useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
+  useFocusEffect(useCallback(() => { fetchCustomers(); }, [fetchCustomers]));
 
   const filtered = customers.filter(c =>
     !search ||

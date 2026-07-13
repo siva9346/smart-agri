@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Alert, Platform } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
 import { Bell, Trash2, Plus } from 'lucide-react-native';
 import { api } from '../../../services/api';
@@ -36,7 +37,7 @@ export const NotificationListScreen = ({ navigation }: any) => {
     }
   }, []);
 
-  useEffect(() => { fetchNotifs(); }, [fetchNotifs]);
+  useFocusEffect(useCallback(() => { fetchNotifs(); }, [fetchNotifs]));
 
   const handleDelete = (notifId: string) => {
     Alert.alert('Delete', 'Remove this notification?', [

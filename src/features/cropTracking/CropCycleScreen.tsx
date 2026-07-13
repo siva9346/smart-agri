@@ -1,14 +1,15 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Modal, Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
 import { Card } from '../../components/Card';
 import {
   Sprout, Banknote, Activity, TrendingUp,
-  ArrowLeft, Plus, TrendingDown, CheckCircle, Clock,
+  ArrowLeft, Plus, TrendingDown, CheckCircle, Clock, Lightbulb,
 } from 'lucide-react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../../store';
@@ -38,6 +39,11 @@ const adaptRecord = (r: any) => ({
   quantity:     r.quantity || undefined,
   notes:        r.notes || '',
   image:        r.image || undefined,
+  createdAt:    r.createdAt || undefined,
+  updatedAt:    r.updatedAt || undefined,
+  title:        r.title || undefined,
+  priority:     r.priority || undefined,
+  recommendedAction: r.recommendedAction || undefined,
 });
 
 // ─── Crop age helper ─────────────────────────────────────────────────────────
@@ -53,7 +59,7 @@ const getCropAge = (startDate: string): number => {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export const CropCycleScreen = ({ route, navigation }: any) => {
-  const { landId, landName } = route.params;
+  const { landId, landName, readOnly } = route.params;
   const dispatch = useDispatch<AppDispatch>();
   const [dataLoading, setDataLoading] = useState(true);
 
@@ -83,7 +89,7 @@ export const CropCycleScreen = ({ route, navigation }: any) => {
     }
   }, [landId, dispatch]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const cropCycles = useMemo(
     () => allCycles.filter(cc => cc.landId === landId),
@@ -213,12 +219,12 @@ export const CropCycleScreen = ({ route, navigation }: any) => {
         <View style={styles.cardActions}>
           <TouchableOpacity
             style={styles.trackBtn}
-            onPress={() => navigation.navigate('CropTracking', { cropCycleId: cycle.id, cropName: cycle.cropName })}
+            onPress={() => navigation.navigate('CropTracking', { cropCycleId: cycle.id, cropName: cycle.cropName, readOnly })}
           >
             <Activity size={13} color={COLORS.surface} />
             <Text style={styles.trackBtnText}>View Timeline</Text>
           </TouchableOpacity>
-          {isActive && (
+          {isActive && !readOnly && (
             <TouchableOpacity style={styles.completeBtn} onPress={() => handleCompleteCycle(cycle.id)}>
               <CheckCircle size={13} color={COLORS.surface} />
               <Text style={styles.completeBtnText}>Complete Cycle</Text>
@@ -231,6 +237,15 @@ export const CropCycleScreen = ({ route, navigation }: any) => {
             >
               <Banknote size={13} color={COLORS.primary} />
               <Text style={styles.summaryBtnText}>Full Summary</Text>
+            </TouchableOpacity>
+          )}
+          {readOnly && (
+            <TouchableOpacity
+              style={styles.adviceBtn}
+              onPress={() => navigation.navigate('AddAdvice', { cycleId: cycle.id, cropName: cycle.cropName })}
+            >
+              <Lightbulb size={13} color={COLORS.surface} />
+              <Text style={styles.adviceBtnText}>Give Advice</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -268,13 +283,15 @@ export const CropCycleScreen = ({ route, navigation }: any) => {
           <Text style={styles.headerTitle}>{landName}</Text>
           <Text style={styles.headerSub}>Cultivation Cycles</Text>
         </View>
-        <TouchableOpacity
-          style={styles.newCycleBtn}
-          onPress={() => navigation.navigate('AddCropCycle', { landId, landName })}
-        >
-          <Plus size={18} color="#FFF" />
-          <Text style={styles.newCycleBtnText}>New</Text>
-        </TouchableOpacity>
+        {!readOnly && (
+          <TouchableOpacity
+            style={styles.newCycleBtn}
+            onPress={() => navigation.navigate('AddCropCycle', { landId, landName })}
+          >
+            <Plus size={18} color="#FFF" />
+            <Text style={styles.newCycleBtnText}>New</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
@@ -493,6 +510,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8, borderRadius: BORDER_RADIUS.md, gap: 6,
   },
   summaryBtnText: { color: COLORS.primary, fontSize: 13, fontWeight: 'bold' },
+  adviceBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', backgroundColor: '#5E35B1',
+    paddingVertical: 8, borderRadius: BORDER_RADIUS.md, gap: 6,
+  },
+  adviceBtnText: { color: '#FFF', fontSize: 13, fontWeight: 'bold' },
   // Empty state
   emptyContainer: { paddingVertical: 60, alignItems: 'center' },
   emptyText: { fontSize: 16, color: COLORS.textSecondary, marginTop: 12 },

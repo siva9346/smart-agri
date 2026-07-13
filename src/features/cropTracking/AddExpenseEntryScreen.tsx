@@ -31,7 +31,7 @@ import {
 } from 'lucide-react-native';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../store';
-import { addRecord } from '../../store/cropSlice';
+import { addRecord, updateRecord } from '../../store/cropSlice';
 import { api } from '../../services/api';
 
 // ─── Activity Types ───────────────────────────────────────────────────────────
@@ -139,6 +139,16 @@ const ACTIVITY_TYPES: ActivityTypeConfig[] = [
     notesPlaceholder: 'Batch details, quality, market destination…',
   },
   {
+    value: 'Growth Update',
+    label: 'Growth Update',
+    emoji: '🌿',
+    showCost: false,
+    showIncome: false,
+    notesRequired: false,
+    notesLabel: 'Growth Notes',
+    notesPlaceholder: 'Height, health, leaf colour, anything worth noting…',
+  },
+  {
     value: 'Other',
     label: 'Other',
     emoji: '📝',
@@ -164,6 +174,16 @@ const EXPENSE_SUB_TYPES: { value: string; label: string; emoji: string }[] = [
   { value: 'OTHER',      label: 'Others',     emoji: '📦' },
 ];
 
+// Growth stages for the 'Growth Update' activity type — stored in the record's
+// existing `stage` field (otherwise just a redundant copy of activityType).
+const GROWTH_STAGES: { value: string; label: string; emoji: string }[] = [
+  { value: 'Seedling',      label: 'Seedling',      emoji: '🌱' },
+  { value: 'Vegetative',    label: 'Vegetative',    emoji: '🌿' },
+  { value: 'Flowering',     label: 'Flowering',     emoji: '🌸' },
+  { value: 'Fruiting',      label: 'Fruiting',      emoji: '🍌' },
+  { value: 'Harvest Ready', label: 'Harvest Ready', emoji: '🌾' },
+];
+
 const todayStr = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -183,20 +203,28 @@ const adaptRecord = (r: any) => ({
   quantity:     r.quantity || undefined,
   notes:        r.notes || '',
   image:        r.image || undefined,
+  createdAt:    r.createdAt || undefined,
+  updatedAt:    r.updatedAt || undefined,
+  title:        r.title || undefined,
+  priority:     r.priority || undefined,
+  recommendedAction: r.recommendedAction || undefined,
 });
 
 export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
   const dispatch = useDispatch<AppDispatch>();
-  const { cropCycleId } = route.params || {};
+  const { cropCycleId, record } = route.params || {};
+  const isEditMode = !!record;
 
-  const [date, setDate] = useState(todayStr());
-  const [activityType, setActivityType] = useState('');
-  const [expenseSubType, setExpenseSubType] = useState('');
-  const [amount, setAmount] = useState('');
-  const [incomeAmount, setIncomeAmount] = useState('');
-  const [quantityInput, setQuantityInput] = useState('');
-  const [notes, setNotes] = useState('');
+  const [date, setDate] = useState(record?.date || todayStr());
+  const [activityType, setActivityType] = useState(record?.activityType || '');
+  const [expenseSubType, setExpenseSubType] = useState(record?.activityType === 'Expense' ? (record?.costType || '') : '');
+  const [growthStage, setGrowthStage] = useState(record?.activityType === 'Growth Update' ? (record?.stage || '') : '');
+  const [amount, setAmount] = useState(record?.expense ? String(record.expense) : '');
+  const [incomeAmount, setIncomeAmount] = useState(record?.incomeAmount ? String(record.incomeAmount) : '');
+  const [quantityInput, setQuantityInput] = useState(record?.quantity || '');
+  const [notes, setNotes] = useState(record?.notes || '');
   const [image, setImage] = useState<{ uri: string; base64: string } | null>(null);
+  const [existingImageUrl, setExistingImageUrl] = useState<string | undefined>(record?.image);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -215,6 +243,15 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
 
     if (activityType === 'Expense' && !expenseSubType) {
       e.expenseSubType = 'Please select the expense category';
+    }
+
+    if (activityType === 'Growth Update') {
+      if (!growthStage) {
+        e.growthStage = 'Please select the current growth stage';
+      }
+      if (!image && !existingImageUrl) {
+        e.photo = 'A photo is required for growth updates';
+      }
     }
 
     if (amount.trim() !== '' && isNaN(Number(amount))) {
@@ -239,7 +276,7 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
 
   const openPickerSheet = () => setPickerVisible(true);
   const closePickerSheet = () => setPickerVisible(false);
-  const removeImage = () => setImage(null);
+  const removeImage = () => { setImage(null); setExistingImageUrl(undefined); };
 
   const showPermissionDeniedAlert = (source: 'camera' | 'photo library') => {
     Alert.alert(
@@ -266,6 +303,7 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
     });
     if (!result.canceled && result.assets?.[0]?.base64) {
       setImage({ uri: result.assets[0].uri, base64: result.assets[0].base64 });
+      setExistingImageUrl(undefined);
     }
   };
 
@@ -283,6 +321,7 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
     });
     if (!result.canceled && result.assets?.[0]?.base64) {
       setImage({ uri: result.assets[0].uri, base64: result.assets[0].base64 });
+      setExistingImageUrl(undefined);
     }
   };
 
@@ -292,7 +331,7 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
     const costTypeValue = activityType === 'Expense' ? expenseSubType : activityType;
     setSaving(true);
     try {
-      let imageUrl: string | undefined;
+      let imageUrl: string | undefined = existingImageUrl;
       if (image) {
         try {
           const uploadRes = await api.post<{ url: string }>('/records/upload-photo', {
@@ -307,10 +346,9 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
         }
       }
 
-      const res = await api.post<any>('/records', {
-        cycleId:      cropCycleId,
+      const payload = {
         date,
-        stage:        activityType,
+        stage:        activityType === 'Growth Update' ? growthStage : activityType,
         costType:     costTypeValue,
         activityType,
         expense:      showIncomeField ? 0 : (amount.trim() ? Number(amount) : 0),
@@ -318,11 +356,21 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
         quantity:     showIncomeField && quantityInput.trim() ? quantityInput.trim() : undefined,
         notes,
         image:        imageUrl,
-      });
-      dispatch(addRecord(adaptRecord(res)));
-      Alert.alert('Saved!', 'Activity record added successfully.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      };
+
+      if (isEditMode) {
+        const res = await api.put<any>(`/records/${record.id}`, payload);
+        dispatch(updateRecord(adaptRecord(res)));
+        Alert.alert('Updated!', 'Activity record updated successfully.', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      } else {
+        const res = await api.post<any>('/records', { cycleId: cropCycleId, ...payload });
+        dispatch(addRecord(adaptRecord(res)));
+        Alert.alert('Saved!', 'Activity record added successfully.', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      }
     } catch (err: any) {
       Alert.alert('Error', err?.message ?? 'Failed to save record. Please try again.');
     } finally {
@@ -342,8 +390,8 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
           <ArrowLeft size={22} color={COLORS.text} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Add Activity Record</Text>
-          <Text style={styles.headerSubtitle}>Track any farming activity</Text>
+          <Text style={styles.headerTitle}>{isEditMode ? 'Edit Activity Record' : 'Add Activity Record'}</Text>
+          <Text style={styles.headerSubtitle}>{isEditMode ? 'Update this activity' : 'Track any farming activity'}</Text>
         </View>
       </View>
 
@@ -397,9 +445,10 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
                     onPress={() => {
                       setActivityType(at.value);
                       setExpenseSubType('');
+                      setGrowthStage('');
                       setIncomeAmount('');
                       setQuantityInput('');
-                      setErrors(prev => ({ ...prev, activityType: undefined as any, incomeAmount: undefined as any }));
+                      setErrors(prev => ({ ...prev, activityType: undefined as any, incomeAmount: undefined as any, growthStage: undefined as any, photo: undefined as any }));
                     }}
                     activeOpacity={0.75}
                   >
@@ -434,6 +483,43 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
                       onPress={() => {
                         setExpenseSubType(st.value);
                         setErrors(prev => ({ ...prev, expenseSubType: undefined as any }));
+                      }}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={styles.subTypeEmoji}>{st.emoji}</Text>
+                      <Text style={[styles.subTypeLabel, active && styles.subTypeLabelActive]}>
+                        {st.label}
+                      </Text>
+                      {active && (
+                        <CheckCircle2 size={14} color="#FFF" style={styles.subTypeCheck} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {/* ── Growth Stage (required for Growth Update) ── */}
+          {activityType === 'Growth Update' && (
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionLabelRow}>
+                <Tag size={16} color={COLORS.primary} />
+                <Text style={styles.sectionLabel}>Growth Stage</Text>
+                {errors.growthStage && (
+                  <Text style={styles.inlineError}>{errors.growthStage}</Text>
+                )}
+              </View>
+              <View style={styles.subTypeGrid}>
+                {GROWTH_STAGES.map((st) => {
+                  const active = growthStage === st.value;
+                  return (
+                    <TouchableOpacity
+                      key={st.value}
+                      style={[styles.subTypeChip, active && styles.subTypeChipActive]}
+                      onPress={() => {
+                        setGrowthStage(st.value);
+                        setErrors(prev => ({ ...prev, growthStage: undefined as any }));
                       }}
                       activeOpacity={0.75}
                     >
@@ -579,12 +665,19 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
               <View style={styles.sectionLabelRow}>
                 <ImagePlus size={16} color={COLORS.primary} />
                 <Text style={styles.sectionLabel}>Photo</Text>
-                <Text style={styles.optionalTag}>(optional)</Text>
+                {activityType === 'Growth Update' ? (
+                  <Text style={[styles.optionalTag, { color: COLORS.error, fontStyle: 'normal', fontWeight: 'bold' }]}>(required)</Text>
+                ) : (
+                  <Text style={styles.optionalTag}>(optional)</Text>
+                )}
+                {errors.photo && (
+                  <Text style={styles.inlineError}>{errors.photo}</Text>
+                )}
               </View>
-              {image ? (
+              {(image || existingImageUrl) ? (
                 <View style={styles.imagePreviewWrap}>
                   <TouchableOpacity onPress={openPickerSheet} activeOpacity={0.85}>
-                    <Image source={{ uri: image.uri }} style={styles.imagePreview} />
+                    <Image source={{ uri: image ? image.uri : existingImageUrl }} style={styles.imagePreview} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.removeImageBtn}
@@ -627,7 +720,9 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
               disabled={saving}
             >
               {saving ? <ActivityIndicator color="#FFF" /> : <Save size={20} color="#FFF" />}
-              <Text style={styles.submitBtnText}>{saving ? 'Saving…' : 'Save Record'}</Text>
+              <Text style={styles.submitBtnText}>
+                {saving ? (isEditMode ? 'Updating…' : 'Saving…') : (isEditMode ? 'Update Record' : 'Save Record')}
+              </Text>
             </TouchableOpacity>
           )}
 

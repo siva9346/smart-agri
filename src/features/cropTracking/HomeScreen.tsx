@@ -1,5 +1,6 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
 import { Card } from '../../components/Card';
 import { MapPin, TrendingUp, Calendar } from 'lucide-react-native';
@@ -38,7 +39,7 @@ export const CropTrackingHomeScreen = ({ navigation }: any) => {
     } catch { /* non-critical */ }
   }, [lands, dispatch]);
 
-  useEffect(() => { loadCycles(); }, [loadCycles]);
+  useFocusEffect(useCallback(() => { loadCycles(); }, [loadCycles]));
 
   if (lands.length === 0) {
     return (

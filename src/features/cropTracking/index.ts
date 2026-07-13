@@ -1,6 +1,7 @@
 export * from './HomeScreen';
 export * from './CropCycleScreen';
 export * from './CropTrackingScreen';
+export * from './ActivityDetailsScreen';
 export * from './AddDailyRecordScreen';
 export * from './AddExpenseEntryScreen';
 export * from './ExpenseSummaryScreen';

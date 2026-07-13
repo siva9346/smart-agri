@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import { ShoppingBag, Users, Package, MessageSquare, TrendingUp, CloudRain, Thermometer, Bell, BookOpen, UserPlus } from 'lucide-react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
@@ -10,21 +11,23 @@ export const AdminDashboardScreen = ({ navigation }: any) => {
   const [stats, setStats] = useState({ totalOrders: 0, pendingOrders: 0, totalCustomers: 0, totalProducts: 0 });
   const role = useSelector((state: RootState) => state.auth.user?.role);
 
-  useEffect(() => {
-    Promise.all([
-      api.get<{ items: any[] }>('/orders').catch(() => ({ items: [] })),
-      api.get<{ items: any[] }>('/farmers').catch(() => ({ items: [] })),
-      api.get<{ items: any[] }>('/products').catch(() => ({ items: [] })),
-    ]).then(([orders, customers, products]) => {
-      const pending = orders.items.filter(o => o.status === 'PENDING').length;
-      setStats({
-        totalOrders:    orders.items.length,
-        pendingOrders:  pending,
-        totalCustomers: customers.items.length,
-        totalProducts:  products.items.length,
+  useFocusEffect(
+    useCallback(() => {
+      Promise.all([
+        api.get<{ items: any[] }>('/orders').catch(() => ({ items: [] })),
+        api.get<{ items: any[] }>('/farmers').catch(() => ({ items: [] })),
+        api.get<{ items: any[] }>('/products').catch(() => ({ items: [] })),
+      ]).then(([orders, customers, products]) => {
+        const pending = orders.items.filter(o => o.status === 'PENDING').length;
+        setStats({
+          totalOrders:    orders.items.length,
+          pendingOrders:  pending,
+          totalCustomers: customers.items.length,
+          totalProducts:  products.items.length,
+        });
       });
-    });
-  }, []);
+    }, [])
+  );
 
   const adminActions = [
     { title: 'New Orders',    icon: ShoppingBag, screen: 'OrdersTab',        color: '#e67e22', badge: stats.pendingOrders > 0 ? String(stats.pendingOrders) : undefined },

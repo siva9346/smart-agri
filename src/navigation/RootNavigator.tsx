@@ -3,7 +3,8 @@ import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
-import { LogOut, Home, ShoppingBag, CloudRain, ShoppingCart, User as UserIcon, Users, MessageSquare, ArrowLeft } from 'lucide-react-native';
+import { LogOut, Home, ShoppingBag, CloudRain, ShoppingCart, User as UserIcon, Users, MessageSquare, ArrowLeft, Bell } from 'lucide-react-native';
+import { NotificationsScreen } from '../features/notifications/NotificationsScreen';
 import { FarmerDashboard } from '../features/farmer/FarmerDashboard';
 import { FertilizerList } from '../features/farmer/FertilizerList';
 import { RainUpdates, SymptomsView } from '../features/advisory/AdvisoryScreens';
@@ -30,6 +31,7 @@ import { EditSymptomScreen } from '../features/admin/screens/EditSymptomScreen';
 import { NotificationListScreen } from '../features/admin/screens/NotificationListScreen';
 import { AddNotificationScreen } from '../features/admin/screens/AddNotificationScreen';
 import { EditNotificationScreen } from '../features/admin/screens/EditNotificationScreen';
+import { AddAdviceScreen } from '../features/admin/screens/AddAdviceScreen';
 import { 
   ProductListScreen, 
   ProductDetailsScreen, 
@@ -47,6 +49,7 @@ import {
   ExpenseSummaryScreen,
   ExpenseBreakdownScreen,
   AddCropCycleScreen,
+  ActivityDetailsScreen,
 } from '../features/cropTracking';
 import { ExpertAdviceScreen } from '../features/farmer/ExpertAdviceScreen';
 import { ExpertAdviceListScreen } from '../features/admin/screens/ExpertAdviceListScreen';
@@ -70,8 +73,13 @@ const HeaderTitle = () => (
   </View>
 );
 
-const HeaderRight = ({ onLogout, navigation }: { onLogout: () => void; navigation: any }) => (
+const HeaderRight = ({ onLogout, navigation, showBell }: { onLogout: () => void; navigation: any; showBell?: boolean }) => (
   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+    {showBell && (
+      <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.logoutButton}>
+        <Bell color={COLORS.primary} size={22} />
+      </TouchableOpacity>
+    )}
     <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.logoutButton}>
       <UserIcon color={COLORS.primary} size={22} />
     </TouchableOpacity>
@@ -112,8 +120,8 @@ const FarmerTabs = () => (
   </Tab.Navigator>
 );
 
-const getCommonOptions = (onLogout: () => void, navigation: any) => ({
-  headerRight: () => <HeaderRight onLogout={onLogout} navigation={navigation} />,
+const getCommonOptions = (onLogout: () => void, navigation: any, showBell?: boolean) => ({
+  headerRight: () => <HeaderRight onLogout={onLogout} navigation={navigation} showBell={showBell} />,
   headerShadowVisible: Boolean(false),
   headerStyle: { backgroundColor: COLORS.background },
   headerTitleAlign: 'center' as const,
@@ -122,7 +130,7 @@ const getCommonOptions = (onLogout: () => void, navigation: any) => ({
 const FarmerNavigator = ({ onLogout }: any) => (
   <FarmerStack.Navigator
     screenOptions={({ navigation }) => ({
-      ...getCommonOptions(onLogout, navigation),
+      ...getCommonOptions(onLogout, navigation, true),
       headerShown: true,
       headerLeft: ({ canGoBack }) => canGoBack ? (
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.circularBackBtn}>
@@ -169,6 +177,7 @@ const FarmerNavigator = ({ onLogout }: any) => (
     <FarmerStack.Screen name="CropTrackingHome" component={CropTrackingHomeScreen} options={{ title: 'My Farm Lands' }} />
     <FarmerStack.Screen name="CropCycle" component={CropCycleScreen} options={{ title: 'Crop Activity' }} />
     <FarmerStack.Screen name="CropTracking" component={CropTrackingScreen} options={{ title: 'Activity Timeline' }} />
+    <FarmerStack.Screen name="ActivityDetails" component={ActivityDetailsScreen} options={{ title: 'Activity Details' }} />
     <FarmerStack.Screen name="AddDailyRecord" component={AddDailyRecordScreen} options={{ title: 'Add Entry' }} />
     <FarmerStack.Screen name="AddExpenseEntry" component={AddExpenseEntryScreen} options={{ title: 'Add Activity Record' }} />
     <FarmerStack.Screen name="ExpenseSummary" component={ExpenseSummaryScreen} options={{ title: 'Expense Analysis' }} />
@@ -176,6 +185,7 @@ const FarmerNavigator = ({ onLogout }: any) => (
     <FarmerStack.Screen name="AddCropCycle" component={AddCropCycleScreen} options={{ title: 'New Cultivation' }} />
     <FarmerStack.Screen name="ExpertAdvice" component={ExpertAdviceScreen} options={{ title: 'Expert Advice' }} />
     <FarmerStack.Screen name="Profile" component={ProfileScreen} options={{ title: 'My Profile' }} />
+    <FarmerStack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
   </FarmerStack.Navigator>
 );
 
@@ -240,13 +250,15 @@ const AdminNavigator = ({ onLogout, role }: any) => (
     <AdminStack.Screen name="Cart" component={CartScreen} options={{ title: 'Mock Cart' }} />
     <AdminStack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Confirm Order' }} />
 
-    {/* Crop Tracking & Expense Management */}
+    {/* Crop Tracking & Expense Management (read-only for admin, except Give Advice) */}
     <AdminStack.Screen name="CropCycle" component={CropCycleScreen} options={{ title: 'Crop Activity' }} />
     <AdminStack.Screen name="CropTracking" component={CropTrackingScreen} options={{ title: 'Activity Timeline' }} />
+    <AdminStack.Screen name="ActivityDetails" component={ActivityDetailsScreen} options={{ title: 'Activity Details' }} />
     <AdminStack.Screen name="AddExpenseEntry" component={AddExpenseEntryScreen} options={{ title: 'Add Activity Record' }} />
     <AdminStack.Screen name="ExpenseSummary" component={ExpenseSummaryScreen} options={{ title: 'Expense Analysis' }} />
     <AdminStack.Screen name="ExpenseBreakdown" component={ExpenseBreakdownScreen} options={{ title: 'Breakdown' }} />
     <AdminStack.Screen name="AddCropCycle" component={AddCropCycleScreen} options={{ title: 'New Cultivation' }} />
+    <AdminStack.Screen name="AddAdvice" component={AddAdviceScreen} options={{ title: 'Give Advice' }} />
     <AdminStack.Screen name="ExpertAdviceList" component={ExpertAdviceListScreen} options={{ title: 'Expert Advice Requests' }} />
     <AdminStack.Screen name="Profile" component={ProfileScreen} options={{ title: 'My Profile' }} />
   </AdminStack.Navigator>

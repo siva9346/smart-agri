@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
 import { api } from '../../services/api';
@@ -49,7 +50,7 @@ export const FarmerDashboard = ({ navigation }: any) => {
     }
   }, [user, dispatch]);
 
-  useEffect(() => { fetchLands(); }, [fetchLands]);
+  useFocusEffect(useCallback(() => { fetchLands(); }, [fetchLands]));
 
   const menuItems = [
     { id: '1', title: 'Products',     icon: ShoppingCart, screen: 'FertilizerList' },
