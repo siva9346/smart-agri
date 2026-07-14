@@ -9,7 +9,7 @@ type AdminRole = 'ADMIN' | 'SUPER_ADMIN';
 
 const ROLE_OPTIONS: { value: AdminRole; label: string; hint: string }[] = [
   { value: 'ADMIN', label: 'Admin', hint: 'Full operational access. Cannot add more admins.' },
-  { value: 'SUPER_ADMIN', label: 'Super Admin', hint: 'Full access, and can also add the remaining admin account.' },
+  { value: 'SUPER_ADMIN', label: 'Super Admin', hint: 'Full access, and can also add admins. Limited to 2 super admin accounts total.' },
 ];
 
 export const AddAdminScreen = ({ navigation }: any) => {
@@ -64,7 +64,7 @@ export const AddAdminScreen = ({ navigation }: any) => {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.hint}>
-          Only 1 more admin-level account can be created in total. Choose the role for this account.
+          Any number of Admin accounts can be created. Only 2 Super Admin accounts are allowed in total.
         </Text>
 
         <View style={styles.field}>

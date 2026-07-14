@@ -4,7 +4,7 @@ GET  /auth/me     – return current user from JWT
 PUT  /auth/me     – fill in missing profile details (name/email/village/district) once; locks after complete
 PUT  /auth/change-password – change own password (current + new)
 POST /auth/register – create a new farmer account (self-registration)
-POST /auth/register-admin – SUPER_ADMIN creates the one remaining admin account (role: ADMIN or SUPER_ADMIN), capped at 2 admin-level accounts total
+POST /auth/register-admin – SUPER_ADMIN creates another admin-level account (role: ADMIN or SUPER_ADMIN). ADMIN accounts are unlimited; SUPER_ADMIN is capped at 2 total.
 POST /auth/forgot-password/send-otp   – email a 6-digit OTP to the phone's registered address
 POST /auth/forgot-password/verify-otp – verify the OTP, set a new password
 """
@@ -27,7 +27,7 @@ from lib.response import (
 
 EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 OTP_TTL_SECONDS = 10 * 60
-MAX_ADMINS = 2  # 1 SUPER_ADMIN + 1 ADMIN
+MAX_SUPER_ADMINS = 2  # ADMIN accounts are unlimited; only SUPER_ADMIN is capped
 EMAIL_FUNCTION_NAME = os.environ.get('EMAIL_FUNCTION_NAME', '')
 
 _lambda = boto3.client('lambda')
@@ -164,12 +164,13 @@ def _register_admin(event):
         return bad_request('role must be ADMIN or SUPER_ADMIN')
 
     tbl = table('users')
-    admin_count = tbl.scan(
-        FilterExpression=Attr('role').is_in(['ADMIN', 'SUPER_ADMIN']),
-        Select='COUNT',
-    )['Count']
-    if admin_count >= MAX_ADMINS:
-        return conflict(f'Cannot create another admin: {MAX_ADMINS} admin accounts already exist.')
+    if role == 'SUPER_ADMIN':
+        super_admin_count = tbl.scan(
+            FilterExpression=Attr('role').eq('SUPER_ADMIN'),
+            Select='COUNT',
+        )['Count']
+        if super_admin_count >= MAX_SUPER_ADMINS:
+            return conflict(f'Cannot create another super admin: {MAX_SUPER_ADMINS} super admin accounts already exist.')
 
     existing = tbl.query(
         IndexName='PhoneIndex',
