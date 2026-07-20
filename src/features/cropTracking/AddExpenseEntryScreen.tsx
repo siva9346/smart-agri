@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
+import { COLORS } from '../../theme';
 import {
   ArrowLeft,
   Camera,

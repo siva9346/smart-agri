@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import { ShoppingBag, Users, Package, MessageSquare, TrendingUp, CloudRain, Thermometer, Bell, BookOpen, UserPlus } from 'lucide-react-native';
@@ -36,7 +37,7 @@ export const AdminDashboardScreen = ({ navigation }: any) => {
     { title: 'Enquiries',     icon: MessageSquare, screen: 'EnquiriesTab',    color: '#8e44ad' },
     { title: 'Rain Update',   icon: CloudRain,   screen: 'UpdateRain',        color: '#3498db' },
     { title: 'Symptoms',      icon: Thermometer, screen: 'SymptomsList',      color: '#e74c3c' },
-    { title: 'Sales Report',  icon: TrendingUp,  screen: 'Admin',             color: '#c0392b' },
+    { title: 'Sales Report',  icon: TrendingUp,  screen: 'SalesReport',       color: '#c0392b' },
     { title: 'Notifications', icon: Bell,        screen: 'NotificationList',  color: '#7f8c8d' },
     { title: 'Expert Advice', icon: BookOpen,    screen: 'ExpertAdviceList',  color: '#16a085', badge: 'New' },
     ...(role === 'SUPER_ADMIN'

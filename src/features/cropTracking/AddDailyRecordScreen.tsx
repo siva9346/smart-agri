@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
-import { ChevronDown, Camera, Save, ArrowLeft } from 'lucide-react-native';
+import { Camera, Save, ArrowLeft } from 'lucide-react-native';
 import { useDispatch } from 'react-redux';
 import { addRecord } from '../../store/cropSlice';
 import { Stage, CostType } from './types';

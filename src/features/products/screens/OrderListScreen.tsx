@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { ApiOrder, productService } from '../services/productService';
+import { ProductImage } from '../../../components/ProductImage';
 
 const STATUS_COLOR: Record<string, string> = {
   PENDING: '#e67e22', CONFIRMED: '#2980b9', SHIPPED: '#8e44ad',
@@ -71,6 +72,7 @@ export const OrderListScreen = () => {
           <View style={styles.itemsSection}>
             {item.items.map((line, i) => (
               <View key={i} style={styles.productRow}>
+                <ProductImage uri={line.imageUrl} size={44} />
                 <View style={styles.productInfo}>
                   <Text style={styles.productName}>{line.productName}</Text>
                   <Text style={styles.productQty}>Qty: {line.quantity} × ₹{Number(line.unitPrice).toFixed(2)}</Text>
@@ -129,7 +131,7 @@ const styles = StyleSheet.create({
   total:        { fontSize: 18, fontWeight: 'bold', color: '#333' },
   date:         { fontSize: 12, color: '#999' },
   itemsSection: { padding: 16, paddingTop: 0, borderTopWidth: 1, borderTopColor: '#f0f0f0', backgroundColor: '#fafafa' },
-  productRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  productRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', gap: 10 },
   productInfo:  { flex: 1 },
   productName:  { fontSize: 14, color: '#333', fontWeight: '500' },
   productQty:   { fontSize: 12, color: '#666' },

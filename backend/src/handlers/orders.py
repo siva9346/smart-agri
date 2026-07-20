@@ -115,6 +115,7 @@ def _create(event):
             'unit':        product.get('unit', ''),
             'unitPrice':   str(price),
             'subtotal':    str(price * qty),
+            'imageUrl':    product.get('imageUrl', ''),
         })
         total_amount += price * qty
 

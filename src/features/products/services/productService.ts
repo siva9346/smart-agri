@@ -17,7 +17,7 @@ export interface ApiProduct {
 export interface ApiOrder {
   orderId: string;
   customerId: string;
-  items: { productId: string; productName: string; quantity: number; unitPrice: string; subtotal: string }[];
+  items: { productId: string; productName: string; quantity: number; unitPrice: string; subtotal: string; imageUrl?: string }[];
   totalAmount: string;
   status: string;
   address: string;

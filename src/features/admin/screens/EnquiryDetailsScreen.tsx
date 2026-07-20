@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
-import { MessageSquare, CheckCircle } from 'lucide-react-native';
+import { CheckCircle } from 'lucide-react-native';
 import { api } from '../../../services/api';
 import { LoadingState, ErrorState } from '../../../components/States';
 
@@ -20,7 +20,7 @@ interface ApiEnquiry {
 const STATUS_COLOR: Record<string, string> = { OPEN: '#e67e22', IN_PROGRESS: '#2980b9', RESOLVED: '#27ae60', CLOSED: '#7f8c8d' };
 const STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
 
-export const EnquiryDetailsScreen = ({ route, navigation }: any) => {
+export const EnquiryDetailsScreen = ({ route }: any) => {
   const { enquiryId, onUpdate } = route.params;
   const [enquiry,  setEnquiry]  = useState<ApiEnquiry | null>(null);
   const [loading,  setLoading]  = useState(true);

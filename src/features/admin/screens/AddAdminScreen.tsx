@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
 import { api } from '../../../services/api';
 
@@ -9,7 +10,7 @@ type AdminRole = 'ADMIN' | 'SUPER_ADMIN';
 
 const ROLE_OPTIONS: { value: AdminRole; label: string; hint: string }[] = [
   { value: 'ADMIN', label: 'Admin', hint: 'Full operational access. Cannot add more admins.' },
-  { value: 'SUPER_ADMIN', label: 'Super Admin', hint: 'Full access, and can also add admins. Limited to 2 super admin accounts total.' },
+  { value: 'SUPER_ADMIN', label: 'Super Admin', hint: 'Full access, and can also add admins. Limited to 5 super admin accounts total.' },
 ];
 
 export const AddAdminScreen = ({ navigation }: any) => {
@@ -64,7 +65,7 @@ export const AddAdminScreen = ({ navigation }: any) => {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.hint}>
-          Any number of Admin accounts can be created. Only 2 Super Admin accounts are allowed in total.
+          Any number of Admin accounts can be created. Only 5 Super Admin accounts are allowed in total.
         </Text>
 
         <View style={styles.field}>

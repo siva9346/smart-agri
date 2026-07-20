@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
+import { COLORS, SPACING } from '../../theme';
 import { Card } from '../../components/Card';
 import { MapPin, TrendingUp, Calendar } from 'lucide-react-native';
 import { useSelector, useDispatch } from 'react-redux';

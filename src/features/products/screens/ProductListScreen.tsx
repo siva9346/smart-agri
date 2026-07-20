@@ -62,7 +62,7 @@ export const ProductListScreen = ({ navigation, route }: any) => {
   };
 
   const handleAddToCart = (product: ApiProduct) => {
-    dispatch(addToCart({ productId: product.productId, name: product.name, price: product.price }));
+    dispatch(addToCart({ productId: product.productId, name: product.name, price: product.price, imageUrl: product.imageUrl }));
     Alert.alert('Success', `${product.name} added to cart!`);
   };
 

@@ -1,12 +1,17 @@
 """
-GET    /products          – list products (all users, paginated)
-POST   /products          – create product (admin only)
-GET    /products/{id}     – get product by productId
-PUT    /products/{id}     – update product (admin only)
-DELETE /products/{id}     – delete product (admin only)
+GET    /products              – list products (all users, paginated)
+POST   /products              – create product (admin only)
+POST   /products/upload-photo – upload a base64 product image to S3, returns its URL (admin only)
+GET    /products/{id}         – get product by productId
+PUT    /products/{id}         – update product (admin only)
+DELETE /products/{id}         – delete product (admin only)
 """
+import os
 import uuid
 import time
+import base64
+import binascii
+import boto3
 from lib.db import table, encode_key, decode_key
 from lib.auth import require_auth, require_admin, AuthError, ForbiddenError
 from lib.response import (
@@ -15,6 +20,16 @@ from lib.response import (
 )
 
 PAGE_SIZE = 50
+MAX_PHOTO_BYTES = 5 * 1024 * 1024  # 5MB
+CONTENT_TYPES = {
+    'image/jpeg': 'jpg',
+    'image/png':  'png',
+    'image/webp': 'webp',
+}
+PHOTOS_BUCKET = os.environ.get('PHOTOS_BUCKET', '')
+AWS_REGION = os.environ.get('AWS_REGION', 'ap-south-1')
+
+_s3 = boto3.client('s3')
 
 
 def handler(event, _ctx):
@@ -24,6 +39,8 @@ def handler(event, _ctx):
 
         if m == 'OPTIONS':
             return no_content()
+        if rid == 'upload-photo' and m == 'POST':
+            return _upload_photo(event)
         if rid:
             if m == 'GET':    return _get(event, rid)
             if m == 'PUT':    return _update(event, rid)
@@ -42,6 +59,49 @@ def handler(event, _ctx):
         return forbidden(str(e))
     except Exception as e:
         return server_err(e)
+
+
+def _upload_photo(event):
+    payload = require_admin(event)
+    body = parse_body(event)
+    image_b64 = body.get('image')
+    content_type = (body.get('contentType') or 'image/jpeg').strip()
+
+    if not image_b64:
+        return bad_request('image (base64) required')
+    if content_type not in CONTENT_TYPES:
+        return bad_request(f'contentType must be one of: {", ".join(CONTENT_TYPES)}')
+
+    try:
+        data = base64.b64decode(image_b64, validate=True)
+    except (binascii.Error, ValueError):
+        return bad_request('invalid base64 image data')
+
+    if len(data) > MAX_PHOTO_BYTES:
+        return bad_request(f'image too large (max {MAX_PHOTO_BYTES // (1024 * 1024)}MB)')
+
+    ext = CONTENT_TYPES[content_type]
+    key = f"products/{payload['userId']}/{uuid.uuid4()}.{ext}"
+
+    _s3.put_object(Bucket=PHOTOS_BUCKET, Key=key, Body=data, ContentType=content_type)
+    url = f'https://{PHOTOS_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{key}'
+    return created({'url': url})
+
+
+def _delete_photo_if_owned(url: str):
+    """Best-effort cleanup of a previously-uploaded product photo. Never
+    raises — an S3 delete failure must not block the DynamoDB write it's
+    cleaning up after."""
+    if not url:
+        return
+    prefix = f'https://{PHOTOS_BUCKET}.s3.{AWS_REGION}.amazonaws.com/'
+    if not url.startswith(prefix):
+        return
+    key = url[len(prefix):]
+    try:
+        _s3.delete_object(Bucket=PHOTOS_BUCKET, Key=key)
+    except Exception:
+        pass
 
 
 def _list(event):
@@ -104,12 +164,19 @@ def _update(event, product_id: str):
     if not updates:
         return bad_request('Nothing to update')
 
+    old_image_url = resp['Item'].get('imageUrl', '')
+    new_image_url = updates.get('imageUrl')
+
     tbl.update_item(
         Key={'productId': product_id},
         UpdateExpression='SET ' + ', '.join(f'#{k} = :{k}' for k in updates),
         ExpressionAttributeNames={f'#{k}': k for k in updates},
         ExpressionAttributeValues={f':{k}': v for k, v in updates.items()},
     )
+
+    if new_image_url is not None and new_image_url != old_image_url:
+        _delete_photo_if_owned(old_image_url)
+
     return ok({**resp['Item'], **updates})
 
 
@@ -120,4 +187,5 @@ def _delete(event, product_id: str):
     if not resp.get('Item'):
         return not_found('Product not found')
     tbl.delete_item(Key={'productId': product_id})
+    _delete_photo_if_owned(resp['Item'].get('imageUrl', ''))
     return no_content()

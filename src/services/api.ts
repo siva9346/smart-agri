@@ -23,11 +23,18 @@ async function request<T>(method: string, path: string, body?: object): Promise<
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (_token) headers['Authorization'] = `Bearer ${_token}`;
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    // fetch() itself throws (not an HTTP error response) on no connectivity, DNS
+    // failure, or the request being aborted — there is no res.ok to check here.
+    throw new ApiError(0, 'Network error. Please check your internet connection and try again.');
+  }
 
   if (res.status === 204) return {} as T;
 

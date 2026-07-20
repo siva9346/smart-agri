@@ -11,6 +11,7 @@ import {
 import { useDispatch } from 'react-redux';
 import { ApiProduct, productService } from '../services/productService';
 import { addToCart } from '../../../store/cartSlice';
+import { ProductImage } from '../../../components/ProductImage';
 
 export const ProductDetailsScreen = ({ route, navigation }: any) => {
   const { productId } = route.params;
@@ -31,7 +32,7 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
 
   const handleAddToCart = () => {
     if (!product) return;
-    dispatch(addToCart({ productId: product.productId, name: product.name, price: product.price, quantity }));
+    dispatch(addToCart({ productId: product.productId, name: product.name, price: product.price, quantity, imageUrl: product.imageUrl }));
     Alert.alert('Success', `${quantity} × ${product.name} added to cart!`, [
       { text: 'Continue Shopping' },
       { text: 'Go to Cart', onPress: () => navigation.navigate('Cart') },
@@ -50,6 +51,7 @@ export const ProductDetailsScreen = ({ route, navigation }: any) => {
 
   return (
     <ScrollView style={styles.container}>
+      <ProductImage uri={product.imageUrl} width="100%" height={240} borderRadius={0} iconSize={56} />
       <View style={styles.content}>
         <Text style={styles.category}>{product.category}</Text>
         <Text style={styles.name}>{product.name}</Text>

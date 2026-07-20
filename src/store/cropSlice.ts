@@ -38,15 +38,6 @@ export interface CropState {
   recordsByCycleId: Record<string, DailyRecord[]>;
 }
 
-function buildRecordIndex(records: DailyRecord[]): Record<string, DailyRecord[]> {
-  const idx: Record<string, DailyRecord[]> = {};
-  for (const r of records) {
-    if (!idx[r.cropCycleId]) idx[r.cropCycleId] = [];
-    idx[r.cropCycleId].push(r);
-  }
-  return idx;
-}
-
 const initialState: CropState = {
   cropCycles: [],
   dailyRecords: [],

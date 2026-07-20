@@ -160,9 +160,20 @@ Resources:
     Properties:
       Handler: handlers.products.handler
       Description: Fertilizer/product catalogue
+      Environment:
+        Variables:
+          PHOTOS_BUCKET: !Ref RecordPhotosBucket
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ProductsTable
+        - S3WritePolicy:
+            BucketName: !Ref RecordPhotosBucket
+        # S3WritePolicy doesn't include DeleteObject — needed to clean up a
+        # product's old photo when it's replaced or the product is deleted.
+        - Statement:
+            - Effect: Allow
+              Action: s3:DeleteObject
+              Resource: !Sub '${RecordPhotosBucket.Arn}/*'
       Events:
         Root: { Type: HttpApi, Properties: { Path: /products,          Method: ANY, ApiId: !Ref Api } }
         Sub:  { Type: HttpApi, Properties: { Path: "/products/{proxy+}",  Method: ANY, ApiId: !Ref Api } }
@@ -235,7 +246,7 @@ Resources:
         Sub:  { Type: HttpApi, Properties: { Path: "/symptoms/{proxy+}",  Method: ANY, ApiId: !Ref Api } }
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # S3  (crop-activity record photos — public-read objects, uploaded via RecordsFunction)
+  # S3  (public-read photo storage, shared by RecordsFunction "records/" and ProductsFunction "products/" key prefixes)
   # ─────────────────────────────────────────────────────────────────────────────
   RecordPhotosBucket:
     Type: AWS::S3::Bucket

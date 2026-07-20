@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useSelector } from 'react-redux';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
 import { api } from '../../services/api';
-import { RootState } from '../../store';
 
 export const EnquiryScreen = ({ navigation }: any) => {
-  const user = useSelector((state: RootState) => state.auth.user);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);

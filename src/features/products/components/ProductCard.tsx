@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { UserRole } from '../../../types/product';
 import { ApiProduct } from '../services/productService';
+import { ProductImage } from '../../../components/ProductImage';
 
 interface ProductCardProps {
   product: ApiProduct;
@@ -22,6 +23,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   return (
     <View style={styles.card}>
+      <View style={styles.imageWrap}>
+        <ProductImage uri={product.imageUrl} width="100%" height={140} borderRadius={12} iconSize={40} />
+      </View>
       <View style={styles.header}>
         <Text style={styles.name}>{product.name}</Text>
         <Text style={styles.category}>{product.category}</Text>
@@ -85,6 +89,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  imageWrap: {
+    marginBottom: 12,
   },
   header: {
     flexDirection: 'row',

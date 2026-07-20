@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
 import { api } from '../../../services/api';
+import { ProductImagePicker, PickedImage } from '../components/ProductImagePicker';
 
 export const AddStockScreen = ({ navigation }: any) => {
   const [name,        setName]        = useState('');
@@ -10,6 +12,9 @@ export const AddStockScreen = ({ navigation }: any) => {
   const [unit,        setUnit]        = useState('kg');
   const [stock,       setStock]       = useState('');
   const [description, setDescription] = useState('');
+  const [image,        setImage]        = useState<PickedImage | null>(null);
+  const [imageError,   setImageError]   = useState<string | undefined>();
+  const [uploadingImg, setUploadingImg] = useState(false);
   const [loading,     setLoading]     = useState(false);
 
   const handleSave = async () => {
@@ -17,8 +22,28 @@ export const AddStockScreen = ({ navigation }: any) => {
       Alert.alert('Error', 'Name, price, and stock quantity are required');
       return;
     }
+    if (!image) {
+      setImageError('Product image is required');
+      return;
+    }
+    setImageError(undefined);
     setLoading(true);
     try {
+      let imageUrl = '';
+      setUploadingImg(true);
+      try {
+        const uploadRes = await api.post<{ url: string }>('/products/upload-photo', {
+          image: image.base64,
+          contentType: image.mimeType,
+        });
+        imageUrl = uploadRes.url;
+      } catch (err: any) {
+        Alert.alert('Photo Upload Failed', err?.message ?? 'Could not upload the image. Please try again.');
+        return;
+      } finally {
+        setUploadingImg(false);
+      }
+
       await api.post('/products', {
         name:        name.trim(),
         category:    category.trim(),
@@ -26,6 +51,7 @@ export const AddStockScreen = ({ navigation }: any) => {
         unit:        unit.trim() || 'kg',
         stock:       Number(stock),
         description: description.trim(),
+        imageUrl,
         isActive:    true,
       });
       Alert.alert('Success', 'Product added to inventory');
@@ -44,6 +70,13 @@ export const AddStockScreen = ({ navigation }: any) => {
           <Text style={styles.label}>Product Name *</Text>
           <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="e.g. Urea Fertilizer" />
         </View>
+        <ProductImagePicker
+          imageUri={image?.uri}
+          uploading={uploadingImg}
+          error={imageError}
+          onPick={(img) => { setImage(img); setImageError(undefined); }}
+          onRemove={() => setImage(null)}
+        />
         <View style={styles.field}>
           <Text style={styles.label}>Category</Text>
           <TextInput style={styles.input} value={category} onChangeText={setCategory} placeholder="e.g. Fertilizers, Pesticides" />

@@ -47,12 +47,19 @@ def handler(event, _ctx):
 
 
 def _list(event):
-    payload = require_auth(event)
-    tbl     = table('lands')
-    cursor  = query_param(event, 'cursor')
+    payload   = require_auth(event)
+    tbl       = table('lands')
+    cursor    = query_param(event, 'cursor')
+    farmer_id = query_param(event, 'farmerId')
 
     if payload['role'] == 'FARMER':
-        farmer_id = query_param(event, 'farmerId') or payload['userId']
+        # Farmers may only ever see their own lands — never trust a
+        # client-supplied farmerId, always force it to the caller's own id.
+        farmer_id = payload['userId']
+
+    if farmer_id:
+        # Scoped to one customer's lands (farmer viewing their own, or admin
+        # viewing a selected customer) — filtered at the DB level via GSI.
         kwargs = {
             'IndexName': 'FarmerIndex',
             'KeyConditionExpression': Key('farmerId').eq(farmer_id),
@@ -61,6 +68,7 @@ def _list(event):
             kwargs['ExclusiveStartKey'] = decode_key(cursor)
         resp = tbl.query(**kwargs)
     else:
+        # No farmerId given — admin browsing lands across all customers.
         kwargs = {'Limit': PAGE_SIZE}
         if cursor:
             kwargs['ExclusiveStartKey'] = decode_key(cursor)

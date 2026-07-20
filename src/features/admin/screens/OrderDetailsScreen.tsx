@@ -5,11 +5,12 @@ import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
 import { MapPin, User, Calendar } from 'lucide-react-native';
 import { api } from '../../../services/api';
 import { LoadingState, ErrorState } from '../../../components/States';
+import { ProductImage } from '../../../components/ProductImage';
 
 interface ApiOrder {
   orderId: string;
   customerId: string;
-  items: { productId: string; productName: string; quantity: number; unitPrice: string; subtotal: string }[];
+  items: { productId: string; productName: string; quantity: number; unitPrice: string; subtotal: string; imageUrl?: string }[];
   totalAmount: string;
   status: string;
   address: string;
@@ -95,6 +96,7 @@ export const OrderDetailsScreen = ({ route }: any) => {
           <Text style={styles.sectionTitle}>Items</Text>
           {order.items.map((item, i) => (
             <View key={i} style={styles.itemRow}>
+              <ProductImage uri={item.imageUrl} size={44} />
               <View style={styles.itemInfo}>
                 <Text style={styles.itemName}>{item.productName}</Text>
                 <Text style={styles.itemQty}>Qty: {item.quantity} × ₹{Number(item.unitPrice).toFixed(2)}</Text>
@@ -143,7 +145,7 @@ const styles = StyleSheet.create({
   sectionTitle:  { fontSize: 13, fontWeight: 'bold', color: COLORS.textSecondary, textTransform: 'uppercase', marginBottom: SPACING.sm },
   infoRow:       { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
   infoText:      { flex: 1, fontSize: 14, color: COLORS.text },
-  itemRow:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
+  itemRow:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm, gap: 10 },
   itemInfo:      { flex: 1 },
   itemName:      { fontSize: 14, fontWeight: '500', color: COLORS.text },
   itemQty:       { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },

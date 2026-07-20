@@ -4,7 +4,7 @@ import {
   ScrollView, Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
+import { COLORS, SPACING } from '../../theme';
 import { Sprout, Calendar, Layers, Save, ArrowLeft } from 'lucide-react-native';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../store';

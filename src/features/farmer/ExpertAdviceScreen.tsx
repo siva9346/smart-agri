@@ -10,10 +10,10 @@ import { RootState } from '../../store';
 import { submitAdviceRequest } from '../../store/adviceSlice';
 import {
   MessageSquare, Plus, CheckCircle, Clock, Calendar,
-  FileText, ChevronRight, Stethoscope,
+  Stethoscope,
 } from 'lucide-react-native';
 
-export const ExpertAdviceScreen = ({ navigation }: any) => {
+export const ExpertAdviceScreen = () => {
   const dispatch = useDispatch();
   const allRequests = useSelector((state: RootState) => state.advice.requests);
   const farmerRequests = allRequests.filter(r => r.farmerId === '1');

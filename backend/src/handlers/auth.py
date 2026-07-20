@@ -27,7 +27,7 @@ from lib.response import (
 
 EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 OTP_TTL_SECONDS = 10 * 60
-MAX_SUPER_ADMINS = 2  # ADMIN accounts are unlimited; only SUPER_ADMIN is capped
+MAX_SUPER_ADMINS = 5  # ADMIN accounts are unlimited; only SUPER_ADMIN is capped
 EMAIL_FUNCTION_NAME = os.environ.get('EMAIL_FUNCTION_NAME', '')
 
 _lambda = boto3.client('lambda')

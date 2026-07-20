@@ -5,11 +5,11 @@ import {
   FlatList,
   StyleSheet,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../../store';
 import { removeFromCart, updateQuantity } from '../../../store/cartSlice';
+import { ProductImage } from '../../../components/ProductImage';
 
 export const CartScreen = ({ navigation }: any) => {
   const dispatch = useDispatch();
@@ -34,11 +34,12 @@ export const CartScreen = ({ navigation }: any) => {
         keyExtractor={(item) => item.productId}
         renderItem={({ item }) => (
           <View style={styles.cartItem}>
+            <ProductImage uri={item.imageUrl} size={52} />
             <View style={styles.itemInfo}>
               <Text style={styles.itemName}>{item.name}</Text>
               <Text style={styles.itemPrice}>₹{item.price.toFixed(2)}</Text>
             </View>
-            
+
             <View style={styles.itemActions}>
               <View style={styles.qtyControls}>
                 <TouchableOpacity onPress={() => handleUpdateQty(item.productId, item.quantity - 1)}>
@@ -113,6 +114,7 @@ const styles = StyleSheet.create({
   },
   itemInfo: {
     flex: 1,
+    marginLeft: 12,
   },
   itemName: {
     fontSize: 16,

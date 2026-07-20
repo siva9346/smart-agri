@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
+import { COLORS, SPACING } from '../../theme';
 import { PieChart, ArrowLeft, TrendingUp } from 'lucide-react-native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';

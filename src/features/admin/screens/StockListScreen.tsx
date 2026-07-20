@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
-import { Edit2, Package, Plus } from 'lucide-react-native';
+import { Edit2, Plus } from 'lucide-react-native';
 import { api } from '../../../services/api';
 import { LoadingState, EmptyState, ErrorState } from '../../../components/States';
+import { ProductImage } from '../../../components/ProductImage';
 
 interface ApiProduct {
   productId: string;
@@ -13,6 +15,7 @@ interface ApiProduct {
   stock: number;
   unit: string;
   description: string;
+  imageUrl?: string;
   isActive: boolean;
 }
 
@@ -43,20 +46,24 @@ export const StockListScreen = ({ navigation }: any) => {
 
   const renderItem = useCallback(({ item }: { item: ApiProduct }) => (
     <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <Package size={20} color={COLORS.primary} />
-        <Text style={styles.productName}>{item.name}</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('EditStock', { product: item })}>
-          <Edit2 size={18} color={COLORS.textSecondary} />
-        </TouchableOpacity>
-      </View>
-      <Text style={styles.category}>{item.category}</Text>
-      <View style={styles.row}>
-        <Text style={styles.price}>₹{item.price}/{item.unit}</Text>
-        <View style={[styles.stockBadge, { backgroundColor: item.stock < 10 ? '#FFEBEE' : '#E8F5E9' }]}>
-          <Text style={[styles.stockText, { color: item.stock < 10 ? '#C62828' : '#2E7D32' }]}>
-            Stock: {item.stock}
-          </Text>
+      <View style={styles.cardBody}>
+        <ProductImage uri={item.imageUrl} size={60} />
+        <View style={styles.cardContent}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.productName}>{item.name}</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('EditStock', { product: item })}>
+              <Edit2 size={18} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.category}>{item.category}</Text>
+          <View style={styles.row}>
+            <Text style={styles.price}>₹{item.price}/{item.unit}</Text>
+            <View style={[styles.stockBadge, { backgroundColor: item.stock < 10 ? '#FFEBEE' : '#E8F5E9' }]}>
+              <Text style={[styles.stockText, { color: item.stock < 10 ? '#C62828' : '#2E7D32' }]}>
+                Stock: {item.stock}
+              </Text>
+            </View>
+          </View>
         </View>
       </View>
     </View>
@@ -91,6 +98,8 @@ const styles = StyleSheet.create({
   addBtnText:  { color: '#fff', fontWeight: 'bold', fontSize: 15 },
   list:        { paddingHorizontal: SPACING.md, paddingBottom: SPACING.md },
   card:        { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.sm, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2 },
+  cardBody:    { flexDirection: 'row', gap: SPACING.md },
+  cardContent: { flex: 1 },
   cardHeader:  { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.xs, gap: 8 },
   productName: { flex: 1, fontSize: 16, fontWeight: 'bold', color: COLORS.text },
   category:    { fontSize: 13, color: COLORS.textSecondary, marginBottom: SPACING.sm },

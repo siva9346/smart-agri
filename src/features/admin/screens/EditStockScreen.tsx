@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
 import { api } from '../../../services/api';
+import { ProductImagePicker, PickedImage } from '../components/ProductImagePicker';
 
 export const EditStockScreen = ({ route, navigation }: any) => {
   const { product } = route.params;
@@ -10,6 +12,10 @@ export const EditStockScreen = ({ route, navigation }: any) => {
   const [stock,       setStock]       = useState(String(product.stock ?? ''));
   const [unit,        setUnit]        = useState(product.unit ?? 'kg');
   const [description, setDescription] = useState(product.description ?? '');
+  const [image,             setImage]             = useState<PickedImage | null>(null);
+  const [existingImageUrl,  setExistingImageUrl]   = useState<string | undefined>(product.imageUrl || undefined);
+  const [imageError,        setImageError]        = useState<string | undefined>();
+  const [uploadingImg,      setUploadingImg]      = useState(false);
   const [loading,     setLoading]     = useState(false);
 
   const handleSave = async () => {
@@ -17,14 +23,37 @@ export const EditStockScreen = ({ route, navigation }: any) => {
       Alert.alert('Error', 'Price and stock are required');
       return;
     }
+    if (!image && !existingImageUrl) {
+      setImageError('Product image is required');
+      return;
+    }
+    setImageError(undefined);
     setLoading(true);
     try {
+      let imageUrl = existingImageUrl ?? '';
+      if (image) {
+        setUploadingImg(true);
+        try {
+          const uploadRes = await api.post<{ url: string }>('/products/upload-photo', {
+            image: image.base64,
+            contentType: image.mimeType,
+          });
+          imageUrl = uploadRes.url;
+        } catch (err: any) {
+          Alert.alert('Photo Upload Failed', err?.message ?? 'Could not upload the image. Please try again.');
+          return;
+        } finally {
+          setUploadingImg(false);
+        }
+      }
+
       await api.put(`/products/${product.productId}`, {
         name:        name.trim(),
         price:       Number(price),
         stock:       Number(stock),
         unit:        unit.trim(),
         description: description.trim(),
+        imageUrl,
       });
       Alert.alert('Success', 'Product updated successfully');
       navigation.goBack();
@@ -42,6 +71,14 @@ export const EditStockScreen = ({ route, navigation }: any) => {
           <Text style={styles.label}>Product Name</Text>
           <TextInput style={styles.input} value={name} onChangeText={setName} />
         </View>
+        <ProductImagePicker
+          imageUri={image?.uri}
+          existingImageUrl={existingImageUrl}
+          uploading={uploadingImg}
+          error={imageError}
+          onPick={(img) => { setImage(img); setExistingImageUrl(undefined); setImageError(undefined); }}
+          onRemove={() => { setImage(null); setExistingImageUrl(undefined); }}
+        />
         <View style={styles.row}>
           <View style={[styles.field, { flex: 1, marginRight: 8 }]}>
             <Text style={styles.label}>Price (₹)</Text>

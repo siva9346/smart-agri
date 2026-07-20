@@ -3,17 +3,15 @@ import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
-import { LogOut, Home, ShoppingBag, CloudRain, ShoppingCart, User as UserIcon, Users, MessageSquare, ArrowLeft, Bell } from 'lucide-react-native';
+import { LogOut, Home, ShoppingBag, CloudRain, ShoppingCart, User as UserIcon, ArrowLeft, Bell } from 'lucide-react-native';
 import { NotificationsScreen } from '../features/notifications/NotificationsScreen';
 import { FarmerDashboard } from '../features/farmer/FarmerDashboard';
-import { FertilizerList } from '../features/farmer/FertilizerList';
 import { RainUpdates, SymptomsView } from '../features/advisory/AdvisoryScreens';
 import { AddLandScreen } from '../features/farmer/AddLandScreen';
 import { PurchaseHistory } from '../features/farmer/PurchaseHistory';
 import { EnquiryScreen } from '../features/farmer/EnquiryScreen';
 import { AdminActionPlaceholder } from '../features/admin/AdminActionPlaceholder';
 import { AdminTabNavigator } from './AdminTabNavigator';
-import { AdminDashboardScreen } from '../features/admin/screens/AdminDashboardScreen';
 import { OrderListScreen as AdminOrderListScreen } from '../features/admin/screens/OrderListScreen';
 import { OrderDetailsScreen } from '../features/admin/screens/OrderDetailsScreen';
 import { StockListScreen } from '../features/admin/screens/StockListScreen';
@@ -32,12 +30,12 @@ import { NotificationListScreen } from '../features/admin/screens/NotificationLi
 import { AddNotificationScreen } from '../features/admin/screens/AddNotificationScreen';
 import { EditNotificationScreen } from '../features/admin/screens/EditNotificationScreen';
 import { AddAdviceScreen } from '../features/admin/screens/AddAdviceScreen';
-import { 
-  ProductListScreen, 
-  ProductDetailsScreen, 
-  CartScreen, 
-  CheckoutScreen, 
-  OrderListScreen,
+import { SalesReportScreen } from '../features/admin/screens/SalesReportScreen';
+import {
+  ProductListScreen,
+  ProductDetailsScreen,
+  CartScreen,
+  CheckoutScreen,
   AddProductScreen
 } from '../features/products';
 import {
@@ -236,6 +234,7 @@ const AdminNavigator = ({ onLogout, role }: any) => (
     <AdminStack.Screen name="AddSymptom" component={AddSymptomScreen} options={{ title: 'Add Record' }} />
     <AdminStack.Screen name="EditSymptom" component={EditSymptomScreen} options={{ title: 'Edit Record' }} />
     <AdminStack.Screen name="NotificationList" component={NotificationListScreen} options={{ title: 'Notifications' }} />
+    <AdminStack.Screen name="SalesReport" component={SalesReportScreen} options={{ title: 'Sales Report' }} />
     <AdminStack.Screen name="AddNotification" component={AddNotificationScreen} options={{ title: 'New Alert' }} />
     <AdminStack.Screen name="EditNotification" component={EditNotificationScreen} options={{ title: 'Edit Alert' }} />
     <AdminStack.Screen 
