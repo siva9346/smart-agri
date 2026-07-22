@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../../theme';
 import { Edit2, Plus } from 'lucide-react-native';
 import { api } from '../../../services/api';
@@ -42,7 +43,12 @@ export const StockListScreen = ({ navigation }: any) => {
     }
   }, []);
 
-  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+  // Re-fetch every time this screen regains focus (not just on first mount) —
+  // the native-stack navigator keeps this screen mounted underneath
+  // AddStock/EditStock, so navigation.goBack() would otherwise reveal the
+  // exact same stale `products` state instead of picking up the product/
+  // image that was just created or edited.
+  useFocusEffect(useCallback(() => { fetchProducts(); }, [fetchProducts]));
 
   const renderItem = useCallback(({ item }: { item: ApiProduct }) => (
     <View style={styles.card}>
