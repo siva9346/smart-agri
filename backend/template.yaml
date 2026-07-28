@@ -245,6 +245,54 @@ Resources:
         Root: { Type: HttpApi, Properties: { Path: /symptoms,          Method: ANY, ApiId: !Ref Api } }
         Sub:  { Type: HttpApi, Properties: { Path: "/symptoms/{proxy+}",  Method: ANY, ApiId: !Ref Api } }
 
+  # ── Account Deletion (Google Play compliance) ────────────────────────────────
+  AccountDeleteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.delete_account.handler
+      Description: Authenticated user requests deletion of their own account — flags it PENDING, does not hard-delete
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        Root: { Type: HttpApi, Properties: { Path: /account/delete, Method: POST, ApiId: !Ref Api } }
+
+  CleanupDeletedAccountsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.cleanup_deleted_accounts.handler
+      Description: Daily EventBridge job — permanently purges accounts past their 30-day deletion grace period
+      Timeout: 300   # not behind API Gateway, so the 29s Globals cap doesn't apply; this can walk many nested items
+      Environment:
+        Variables:
+          PHOTOS_BUCKET: !Ref RecordPhotosBucket
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LandsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CropCyclesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DailyRecordsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrdersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AdviceTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref EnquiriesTable
+        - Statement:
+            - Effect: Allow
+              Action: s3:DeleteObject
+              Resource: !Sub '${RecordPhotosBucket.Arn}/*'
+      Events:
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 day)
+            Description: Runs once daily to hard-delete accounts past their deletion grace period
+            Enabled: true
+
   # ─────────────────────────────────────────────────────────────────────────────
   # S3  (public-read photo storage, shared by RecordsFunction "records/" and ProductsFunction "products/" key prefixes)
   # ─────────────────────────────────────────────────────────────────────────────
