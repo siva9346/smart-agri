@@ -1,13 +1,13 @@
-# Play Store Listing — Naveena Uzhavan (Smart Agri)
+# Play Store Listing — Smart Agri
 
 ## App name (max 30 chars)
-Naveena Uzhavan - Smart Agri
+Smart Agri
 
 ## Short description (max 80 chars)
 Track crops, expenses & land, get weather & expert advice, buy farm supplies.
 
 ## Full description (max 4000 chars)
-Naveena Uzhavan (Smart Agri) is an all-in-one farm management app built for
+Smart Agri is an all-in-one farm management app built for
 Tamil Nadu farmers, helping you plan, track, and grow smarter.
 
 🌾 CROP TRACKING
@@ -40,7 +40,7 @@ from agricultural experts.
 A dedicated admin dashboard lets farm/dealer staff manage customers, stock,
 orders, notifications, and expert advisory content.
 
-Naveena Uzhavan is built to make day-to-day farm record-keeping simple, so
+Smart Agri is built to make day-to-day farm record-keeping simple, so
 you can spend more time farming and less time on paperwork.
 
 ## Category

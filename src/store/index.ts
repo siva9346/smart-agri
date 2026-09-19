@@ -6,6 +6,7 @@ import cropReducer from './cropSlice';
 import orderReducer from './orderSlice';
 import cartReducer from './cartSlice';
 import adviceReducer from './adviceSlice';
+import notificationReducer from './notificationSlice';
 
 export const store = configureStore({
   reducer: {
@@ -16,6 +17,7 @@ export const store = configureStore({
     order:    orderReducer,
     cart:     cartReducer,
     advice:   adviceReducer,
+    notification: notificationReducer,
   },
 });
 

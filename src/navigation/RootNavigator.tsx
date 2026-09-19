@@ -3,8 +3,11 @@ import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
+import { useSelector } from 'react-redux';
 import { LogOut, Home, ShoppingBag, CloudRain, ShoppingCart, User as UserIcon, ArrowLeft, Bell } from 'lucide-react-native';
 import { NotificationsScreen } from '../features/notifications/NotificationsScreen';
+import { useUnreadNotifications } from '../features/notifications/useUnreadNotifications';
+import { RootState } from '../store';
 import { FarmerDashboard } from '../features/farmer/FarmerDashboard';
 import { RainUpdates, SymptomsView } from '../features/advisory/AdvisoryScreens';
 import { AddLandScreen } from '../features/farmer/AddLandScreen';
@@ -67,15 +70,18 @@ const HeaderTitle = () => (
       style={styles.headerLogo}
       resizeMode="contain"
     />
-    <Text style={styles.headerTitleText}>Naveena Uzhavan</Text>
+    <Text style={styles.headerTitleText}>Smart Agri</Text>
   </View>
 );
 
-const HeaderRight = ({ onLogout, navigation, showBell }: { onLogout: () => void; navigation: any; showBell?: boolean }) => (
+const HeaderRight = ({ onLogout, navigation, showBell }: { onLogout: () => void; navigation: any; showBell?: boolean }) => {
+  const hasUnread = useSelector((s: RootState) => s.notification.hasUnread);
+  return (
   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
     {showBell && (
       <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.logoutButton}>
         <Bell color={COLORS.primary} size={22} />
+        {hasUnread && <View style={styles.unreadDot} />}
       </TouchableOpacity>
     )}
     <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.logoutButton}>
@@ -85,7 +91,8 @@ const HeaderRight = ({ onLogout, navigation, showBell }: { onLogout: () => void;
       <LogOut color={COLORS.error} size={22} />
     </TouchableOpacity>
   </View>
-);
+  );
+};
 
 const FarmerTabs = () => (
   <Tab.Navigator 
@@ -125,7 +132,9 @@ const getCommonOptions = (onLogout: () => void, navigation: any, showBell?: bool
   headerTitleAlign: 'center' as const,
 });
 
-const FarmerNavigator = ({ onLogout }: any) => (
+const FarmerNavigator = ({ onLogout }: any) => {
+  useUnreadNotifications(true);
+  return (
   <FarmerStack.Navigator
     screenOptions={({ navigation }) => ({
       ...getCommonOptions(onLogout, navigation, true),
@@ -185,7 +194,8 @@ const FarmerNavigator = ({ onLogout }: any) => (
     <FarmerStack.Screen name="Profile" component={ProfileScreen} options={{ title: 'My Profile' }} />
     <FarmerStack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
   </FarmerStack.Navigator>
-);
+  );
+};
 
 const AdminNavigator = ({ onLogout, role }: any) => (
   <AdminStack.Navigator
@@ -296,6 +306,11 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     padding: SPACING.sm,
+  },
+  unreadDot: {
+    position: 'absolute', top: 6, right: 6,
+    width: 9, height: 9, borderRadius: 4.5,
+    backgroundColor: COLORS.error, borderWidth: 1.5, borderColor: COLORS.background,
   },
   circularBackBtn: {
     width: 38,

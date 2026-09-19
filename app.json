@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Naveena Uzhavan",
+    "name": "Smart Agri",
     "slug": "agri-manage-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -43,8 +43,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Naveena Uzhavan to access your photos to attach a picture to crop activity records.",
-          "cameraPermission": "Allow Naveena Uzhavan to access your camera to capture a picture for crop activity records."
+          "photosPermission": "Allow Smart Agri to access your photos to attach a picture to crop activity records.",
+          "cameraPermission": "Allow Smart Agri to access your camera to capture a picture for crop activity records."
         }
       ]
     ],

@@ -66,8 +66,7 @@ export const LoginScreen = ({ navigation }: any) => {
           </View>
 
           <View style={styles.headerContainer}>
-            <Text style={styles.title}>Naveena Uzhavan</Text>
-            <Text style={styles.subtitle}>Smart Agri</Text>
+            <Text style={styles.title}>Smart Agri</Text>
           </View>
 
           <View style={styles.inputContainer}>

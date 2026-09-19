@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
 import { ArrowLeft, Calendar, Activity, FileText, ImageIcon, Lightbulb, Plus } from 'lucide-react-native';
@@ -269,12 +269,14 @@ export const CropTrackingScreen = ({ route, navigation }: any) => {
             </View>
 
             {/* Photo indicator */}
-            <View style={[styles.photoBox, !!item.image && styles.photoBoxAttached]}>
-              <ImageIcon size={18} color={item.image ? color : '#CCC'} />
-              <Text style={[styles.photoText, !!item.image && { color }]}>
-                {item.image ? 'Photo' : 'No Photo'}
-              </Text>
-            </View>
+            {item.image ? (
+              <Image source={{ uri: item.image }} style={styles.photoThumb} />
+            ) : (
+              <View style={styles.photoBox}>
+                <ImageIcon size={18} color="#CCC" />
+                <Text style={styles.photoText}>No Photo</Text>
+              </View>
+            )}
           </View>
         </TouchableOpacity>
       </View>
@@ -353,45 +355,47 @@ export const CropTrackingScreen = ({ route, navigation }: any) => {
         )}
       />
 
-      {/* Footer: 3-column summary */}
+      {/* Footer: 3-column summary + action button, stacked so neither ever overlaps */}
       <View style={styles.footer}>
-        <View style={styles.footerItem}>
-          <Text style={styles.footerLabel}>EXPENSE</Text>
-          <Text style={[styles.footerValue, styles.footerExpense]}>
-            ₹{totalExpense.toLocaleString('en-IN')}
-          </Text>
-        </View>
-        <View style={styles.footerDivider} />
-        <View style={styles.footerItem}>
-          <Text style={styles.footerLabel}>INCOME</Text>
-          <Text style={[styles.footerValue, styles.footerIncome]}>
-            {totalIncome > 0 ? `₹${totalIncome.toLocaleString('en-IN')}` : '—'}
-          </Text>
-        </View>
-        <View style={styles.footerDivider} />
-        <View style={styles.footerItem}>
-          <Text style={styles.footerLabel}>P&L</Text>
-          {totalIncome > 0 ? (
-            <Text style={[styles.footerValue, { color: netPL >= 0 ? COLORS.success : COLORS.error }]}>
-              {netPL >= 0 ? '+' : ''}₹{Math.abs(netPL).toLocaleString('en-IN')}
+        <View style={styles.footerStatsRow}>
+          <View style={styles.footerItem}>
+            <Text style={styles.footerLabel}>EXPENSE</Text>
+            <Text style={[styles.footerValue, styles.footerExpense]}>
+              ₹{totalExpense.toLocaleString('en-IN')}
             </Text>
-          ) : (
-            <Text style={[styles.footerValue, styles.footerZero]}>—</Text>
-          )}
+          </View>
+          <View style={styles.footerDivider} />
+          <View style={styles.footerItem}>
+            <Text style={styles.footerLabel}>INCOME</Text>
+            <Text style={[styles.footerValue, styles.footerIncome]}>
+              {totalIncome > 0 ? `₹${totalIncome.toLocaleString('en-IN')}` : '—'}
+            </Text>
+          </View>
+          <View style={styles.footerDivider} />
+          <View style={styles.footerItem}>
+            <Text style={styles.footerLabel}>P&L</Text>
+            {totalIncome > 0 ? (
+              <Text style={[styles.footerValue, { color: netPL >= 0 ? COLORS.success : COLORS.error }]}>
+                {netPL >= 0 ? '+' : ''}₹{Math.abs(netPL).toLocaleString('en-IN')}
+              </Text>
+            ) : (
+              <Text style={[styles.footerValue, styles.footerZero]}>—</Text>
+            )}
+          </View>
         </View>
-      </View>
 
-      {/* FAB — hidden entirely in read-only (admin viewing a customer's cycle) */}
-      {!readOnly && (
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => navigation.navigate('AddExpenseEntry', { cropCycleId })}
-          activeOpacity={0.85}
-        >
-          <Plus size={22} color="#FFF" />
-          <Text style={styles.fabText}>Add Record</Text>
-        </TouchableOpacity>
-      )}
+        {/* Hidden entirely in read-only (admin viewing a customer's cycle) */}
+        {!readOnly && (
+          <TouchableOpacity
+            style={styles.addRecordBtn}
+            onPress={() => navigation.navigate('AddExpenseEntry', { cropCycleId })}
+            activeOpacity={0.85}
+          >
+            <Plus size={20} color="#FFF" />
+            <Text style={styles.fabText}>Add Record</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </SafeAreaView>
   );
 };
@@ -510,8 +514,11 @@ const styles = StyleSheet.create({
     borderRadius: 8, justifyContent: 'center',
     alignItems: 'center', marginLeft: 10,
   },
-  photoBoxAttached: { backgroundColor: '#E8F4FF' },
   photoText: { fontSize: 8, color: '#AAA', marginTop: 4 },
+  photoThumb: {
+    width: 54, height: 54, borderRadius: 8,
+    marginLeft: 10, backgroundColor: '#EAEDF1',
+  },
   // Harvest income display in timeline card
   incomeBlock: { marginTop: 4 },
   quantityText: { fontSize: 12, color: '#555', marginBottom: 4 },
@@ -521,10 +528,10 @@ const styles = StyleSheet.create({
   // Footer
   footer: {
     backgroundColor: '#FFF',
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: SPACING.sm,
     borderTopWidth: 1, borderTopColor: '#EEE',
-    flexDirection: 'row', alignItems: 'center',
   },
+  footerStatsRow: { flexDirection: 'row', alignItems: 'center' },
   footerItem: { flex: 1, alignItems: 'center' },
   footerDivider: { width: 1, height: 32, backgroundColor: '#E8E8E8' },
   footerLabel: {
@@ -539,15 +546,15 @@ const styles = StyleSheet.create({
   empty: { padding: 60, alignItems: 'center' },
   emptyTitle: { fontSize: 15, fontWeight: 'bold', color: '#AAA', marginTop: 12 },
   emptyHint: { fontSize: 13, color: '#CCC', marginTop: 4, textAlign: 'center' },
-  // FAB
-  fab: {
-    position: 'absolute', bottom: 80, right: SPACING.lg,
-    flexDirection: 'row', alignItems: 'center',
+  // Add Record — laid out in-flow below the stats row, so it can never cover them
+  addRecordBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 18, paddingVertical: 12,
-    borderRadius: 30, elevation: 6,
+    paddingVertical: 12,
+    borderRadius: 30, marginTop: SPACING.sm,
+    elevation: 4,
     shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6,
   },
   fabText: { color: '#FFF', fontSize: 15, fontWeight: 'bold', marginLeft: 6 },
 });

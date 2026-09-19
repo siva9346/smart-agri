@@ -2,10 +2,12 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { useDispatch } from 'react-redux';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
 import { Bell, X } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { LoadingState, EmptyState, ErrorState } from '../../components/States';
+import { markAllSeen } from '../../store/notificationSlice';
 
 interface ApiNotif {
   notifId: string;
@@ -25,6 +27,7 @@ const formatDateTime = (iso: string) => {
 };
 
 export const NotificationsScreen = () => {
+  const dispatch = useDispatch();
   const [notifs,     setNotifs]     = useState<ApiNotif[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState<string | null>(null);
@@ -40,13 +43,17 @@ export const NotificationsScreen = () => {
       setNotifs(prev => cursor ? [...prev, ...res.items] : res.items);
       setNextCursor(res.nextCursor);
       setError(null);
+      if (!cursor) {
+        const latest = res.items.reduce((max, n) => (n.createdAt > max ? n.createdAt : max), '');
+        dispatch(markAllSeen(latest || new Date().toISOString()));
+      }
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load notifications');
     } finally {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, []);
+  }, [dispatch]);
 
   useFocusEffect(useCallback(() => { fetchNotifs(); }, [fetchNotifs]));
 

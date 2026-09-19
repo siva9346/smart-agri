@@ -380,12 +380,12 @@ def _send_otp_email(to_email: str, otp: str):
     # more than it helps readability for a short one-time code.
     payload = json.dumps({
         'to': to_email,
-        'subject': 'Your Naveena Uzhavan verification code',
+        'subject': 'Your Smart Agri verification code',
         'body': (
             f'Hi,\n\n'
             f'Your verification code is {otp}\n\n'
             f'It expires in {minutes} minutes. If you did not request this, you can ignore this message.\n\n'
-            f'– Naveena Uzhavan'
+            f'– Smart Agri'
         ),
     })
     resp = _lambda.invoke(

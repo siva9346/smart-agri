@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Naveena Uzhavan – Agri Management Backend (Python)
+Description: Smart Agri – Agri Management Backend (Python)
 
 # ─── Global defaults applied to every Lambda ─────────────────────────────────
 Globals:
@@ -52,7 +52,7 @@ Resources:
     Type: AWS::Serverless::HttpApi
     Properties:
       StageName: v1
-      Description: Naveena Uzhavan REST API
+      Description: Smart Agri REST API
 
   # ─────────────────────────────────────────────────────────────────────────────
   # LAMBDA FUNCTIONS  (Python 3.12, arm64 Graviton2)

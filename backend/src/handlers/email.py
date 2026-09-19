@@ -13,7 +13,7 @@ from email.utils import formataddr, formatdate, make_msgid
 
 GMAIL_ADDRESS = os.environ['GMAIL_ADDRESS']
 GMAIL_APP_PASSWORD = os.environ['GMAIL_APP_PASSWORD']
-SENDER_NAME = 'Naveena Uzhavan'
+SENDER_NAME = 'Smart Agri'
 
 
 def handler(event, _ctx):

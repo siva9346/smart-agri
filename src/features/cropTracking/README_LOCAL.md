@@ -1,6 +1,6 @@
 # Crop Tracking & Expense Management Module
 
-The Crop Tracking and Expense Management module has been successfully integrated into the **Naveena Uzhavan** app.
+The Crop Tracking and Expense Management module has been successfully integrated into the **Smart Agri** app.
 
 ## Module Structure
 
