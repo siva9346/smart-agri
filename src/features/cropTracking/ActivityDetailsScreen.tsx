@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
-import { ArrowLeft, Calendar, FileText, Lock, Edit3, Trash2, X, AlertTriangle } from 'lucide-react-native';
+import { Calendar, FileText, Lock, Edit3, Trash2, X, AlertTriangle, Package, ZoomIn } from 'lucide-react-native';
 import { RootState, AppDispatch } from '../../store';
 import { removeRecord } from '../../store/cropSlice';
 import { api } from '../../services/api';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
 import { ZoomableImage } from '../../components/ZoomableImage';
+import { GradientHero } from '../../components/GradientHero';
+import { GlassCard } from '../../components/GlassCard';
 import { getColor, getBg, getLabel, isHarvest, isObservation } from './CropTrackingScreen';
 
 const formatDateTime = (iso?: string) => {
@@ -83,15 +85,7 @@ export const ActivityDetailsScreen = ({ route, navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={22} color={COLORS.text} />
-        </TouchableOpacity>
-        <View style={styles.headerText}>
-          <Text style={styles.headerTitle}>Activity Details</Text>
-          <Text style={styles.headerSubtitle}>{record.date}</Text>
-        </View>
-      </View>
+      <GradientHero title="Activity Details" subtitle={record.date} onBack={() => navigation.goBack()} compact />
 
       <ScrollView contentContainerStyle={styles.scroll}>
         {isCompleted && (
@@ -103,12 +97,18 @@ export const ActivityDetailsScreen = ({ route, navigation }: any) => {
           </View>
         )}
 
-        <View style={[styles.card, { borderLeftColor: color }]}>
-          <View style={[styles.badge, { backgroundColor: bg }]}>
-            <Text style={[styles.badgeText, { color }]}>{label}</Text>
+        <GlassCard style={[styles.card, { borderLeftColor: color }]}>
+          <View style={styles.topRow}>
+            <View style={[styles.badge, { backgroundColor: bg }]}>
+              <Text style={[styles.badgeText, { color }]}>{label}</Text>
+            </View>
+            <View style={styles.dateChip}>
+              <Calendar size={13} color={COLORS.textSecondary} />
+              <Text style={styles.dateChipText}>{record.date}</Text>
+            </View>
           </View>
 
-          {isAdvice && record.priority && (
+          {(isAdvice || record.activityType === 'Symptom') && record.priority && (
             <View style={[styles.priorityBadge, { backgroundColor: (PRIORITY_COLOR[record.priority] ?? color) + '22' }]}>
               <AlertTriangle size={13} color={PRIORITY_COLOR[record.priority] ?? color} />
               <Text style={[styles.priorityText, { color: PRIORITY_COLOR[record.priority] ?? color }]}>
@@ -119,36 +119,24 @@ export const ActivityDetailsScreen = ({ route, navigation }: any) => {
 
           {isAdvice && record.title ? <Text style={styles.adviceTitle}>{record.title}</Text> : null}
 
-          <View style={styles.fieldRow}>
-            <Calendar size={16} color={COLORS.textSecondary} />
-            <Text style={styles.fieldLabel}>Date</Text>
-            <Text style={styles.fieldValue}>{record.date}</Text>
-          </View>
-
-          {showExpense && (
-            <View style={styles.fieldRow}>
-              <Text style={styles.rupee}>₹</Text>
-              <Text style={styles.fieldLabel}>Cost</Text>
-              <Text style={[styles.fieldValue, { color: COLORS.error, fontWeight: 'bold' }]}>
-                {record.expense.toLocaleString('en-IN')}
-              </Text>
-            </View>
-          )}
-
-          {showIncome && (
-            <View style={styles.fieldRow}>
-              <Text style={styles.rupee}>₹</Text>
-              <Text style={styles.fieldLabel}>Income</Text>
-              <Text style={[styles.fieldValue, { color: COLORS.success, fontWeight: 'bold' }]}>
-                {(record.incomeAmount ?? 0).toLocaleString('en-IN')}
-              </Text>
+          {(showExpense || showIncome) && (
+            <View style={[styles.statBlock, { backgroundColor: (showExpense ? COLORS.error : COLORS.success) + '10' }]}>
+              <View style={[styles.statIcon, { backgroundColor: (showExpense ? COLORS.error : COLORS.success) + '20' }]}>
+                <Text style={[styles.statRupee, { color: showExpense ? COLORS.error : COLORS.success }]}>₹</Text>
+              </View>
+              <View>
+                <Text style={styles.statLabel}>{showExpense ? 'COST' : 'INCOME'}</Text>
+                <Text style={[styles.statValue, { color: showExpense ? COLORS.error : COLORS.success }]}>
+                  {(showExpense ? record.expense : (record.incomeAmount ?? 0)).toLocaleString('en-IN')}
+                </Text>
+              </View>
             </View>
           )}
 
           {!!record.quantity && (
-            <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>Quantity</Text>
-              <Text style={styles.fieldValue}>{record.quantity}</Text>
+            <View style={styles.quantityChip}>
+              <Package size={13} color={COLORS.textSecondary} />
+              <Text style={styles.quantityChipText}>{record.quantity}</Text>
             </View>
           )}
 
@@ -172,7 +160,9 @@ export const ActivityDetailsScreen = ({ route, navigation }: any) => {
           {!!record.image && (
             <TouchableOpacity style={styles.photoThumbWrap} onPress={() => setPhotoOpen(true)} activeOpacity={0.85}>
               <Image source={{ uri: record.image }} style={styles.photoThumb} />
-              <Text style={styles.photoHint}>Tap to view full size</Text>
+              <View style={styles.photoZoomBadge}>
+                <ZoomIn size={16} color="#FFF" />
+              </View>
             </TouchableOpacity>
           )}
 
@@ -180,7 +170,7 @@ export const ActivityDetailsScreen = ({ route, navigation }: any) => {
             <Text style={styles.timestampText}>Created: {formatDateTime(record.createdAt)}</Text>
             <Text style={styles.timestampText}>Last Updated: {formatDateTime(record.updatedAt ?? record.createdAt)}</Text>
           </View>
-        </View>
+        </GlassCard>
 
         {canEdit && (
           <View style={styles.actionsRow}>
@@ -209,19 +199,9 @@ export const ActivityDetailsScreen = ({ route, navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F0F4F8' },
+  safe: { flex: 1, backgroundColor: '#F2F7F3' },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyText: { color: COLORS.textSecondary },
-  header: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: '#E8EDF2',
-    elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3,
-  },
-  backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#F5F5F5', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  headerText: { flex: 1 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A1A' },
-  headerSubtitle: { fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
   scroll: { padding: SPACING.md, paddingBottom: 40 },
   readOnlyBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -229,31 +209,52 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.md,
   },
   readOnlyText: { flex: 1, fontSize: 13, color: '#7A5C00', lineHeight: 18 },
-  card: {
-    backgroundColor: '#FFF', borderRadius: BORDER_RADIUS.lg, padding: SPACING.lg,
-    borderLeftWidth: 4, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5,
-  },
-  badge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, marginBottom: SPACING.md },
+  card: { padding: SPACING.lg, borderLeftWidth: 4 },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
+  badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
   badgeText: { fontSize: 12, fontWeight: 'bold' },
+  dateChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(0,0,0,0.05)', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 10 },
+  dateChipText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
   priorityBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginBottom: SPACING.sm },
   priorityText: { fontSize: 11, fontWeight: 'bold' },
   adviceTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.text, marginBottom: SPACING.md },
-  fieldRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.md, gap: 8 },
-  rupee: { fontSize: 14, fontWeight: 'bold', color: COLORS.textSecondary, width: 16 },
-  fieldLabel: { fontSize: 14, color: COLORS.textSecondary, flex: 1 },
-  fieldValue: { fontSize: 15, color: COLORS.text, fontWeight: '600' },
+  statBlock: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: SPACING.md, borderRadius: BORDER_RADIUS.md, marginBottom: SPACING.md,
+  },
+  statIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  statRupee: { fontSize: 18, fontWeight: 'bold' },
+  statLabel: { fontSize: 10.5, fontWeight: 'bold', color: COLORS.textSecondary, letterSpacing: 0.8 },
+  statValue: { fontSize: 24, fontWeight: 'bold', marginTop: 1 },
+  quantityChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+    backgroundColor: 'rgba(0,0,0,0.05)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, marginBottom: SPACING.md,
+  },
+  quantityChipText: { fontSize: 13, fontWeight: '600', color: COLORS.text },
   notesBlock: { marginTop: SPACING.sm, marginBottom: SPACING.md },
   notesLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
   notesLabel: { fontSize: 12, fontWeight: 'bold', color: COLORS.textSecondary, textTransform: 'uppercase' },
   notesText: { fontSize: 15, color: COLORS.text, lineHeight: 22 },
-  photoThumbWrap: { marginTop: SPACING.sm, marginBottom: SPACING.md },
+  photoThumbWrap: { marginTop: SPACING.sm, marginBottom: SPACING.md, position: 'relative' },
   photoThumb: { width: '100%', height: 200, borderRadius: BORDER_RADIUS.md, backgroundColor: '#EAEDF1' },
-  photoHint: { fontSize: 12, color: COLORS.textSecondary, marginTop: 6, textAlign: 'center' },
+  photoZoomBadge: {
+    position: 'absolute', bottom: 10, right: 10,
+    width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center', justifyContent: 'center',
+  },
   timestampBlock: { borderTopWidth: 1, borderTopColor: '#EEE', paddingTop: SPACING.md, marginTop: SPACING.sm },
   timestampText: { fontSize: 12, color: '#999', marginBottom: 2 },
   actionsRow: { flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.lg },
-  editBtn: { flex: 1, flexDirection: 'row', gap: 8, backgroundColor: COLORS.primary, paddingVertical: 14, borderRadius: BORDER_RADIUS.md, alignItems: 'center', justifyContent: 'center' },
-  deleteBtn: { flex: 1, flexDirection: 'row', gap: 8, backgroundColor: COLORS.error, paddingVertical: 14, borderRadius: BORDER_RADIUS.md, alignItems: 'center', justifyContent: 'center' },
+  editBtn: {
+    flex: 1, flexDirection: 'row', gap: 8, backgroundColor: COLORS.primary,
+    paddingVertical: 14, borderRadius: 30, alignItems: 'center', justifyContent: 'center',
+    elevation: 3, shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6,
+  },
+  deleteBtn: {
+    flex: 1, flexDirection: 'row', gap: 8, backgroundColor: COLORS.error,
+    paddingVertical: 14, borderRadius: 30, alignItems: 'center', justifyContent: 'center',
+    elevation: 3, shadowColor: COLORS.error, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6,
+  },
   actionBtnText: { color: '#FFF', fontSize: 15, fontWeight: 'bold' },
   photoModalOverlay: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
   photoCloseBtn: { position: 'absolute', top: 50, right: 20, zIndex: 10 },

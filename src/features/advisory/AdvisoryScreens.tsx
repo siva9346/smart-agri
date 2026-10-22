@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { COLORS } from '../../theme';
+import { GradientHero } from '../../components/GradientHero';
 import {
   fetchCurrentWeather,
   fetchForecast,
@@ -36,7 +37,6 @@ import {
   Thermometer,
   Calendar,
   MapPin,
-  ArrowLeft,
   LocateFixed,
   AlertTriangle,
   RefreshCw,
@@ -245,16 +245,7 @@ export const RainUpdates = ({ navigation }: any) => {
   // ─── Shared header ────────────────────────────────────────────────────────
   const Header = () =>
     navigation?.canGoBack?.() ? (
-      <View style={styles.screenHeader}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <ArrowLeft size={22} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Weather Forecast</Text>
-      </View>
+      <GradientHero title="Weather Forecast" onBack={() => navigation.goBack()} compact />
     ) : null;
 
   // ─── Loading ──────────────────────────────────────────────────────────────
@@ -644,37 +635,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#EEF2F5',
-  },
-
-  // Header
-  screenHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8EDF2',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-  },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#F5F5F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    letterSpacing: 0.2,
   },
 
   // Loading / error

@@ -17,8 +17,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '../../theme';
+import { GradientHero } from '../../components/GradientHero';
 import {
-  ArrowLeft,
   Camera,
   Save,
   Calendar,
@@ -380,20 +380,12 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom']}>
-      {/* ── Header ── */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backBtn}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <ArrowLeft size={22} color={COLORS.text} />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>{isEditMode ? 'Edit Activity Record' : 'Add Activity Record'}</Text>
-          <Text style={styles.headerSubtitle}>{isEditMode ? 'Update this activity' : 'Track any farming activity'}</Text>
-        </View>
-      </View>
+      <GradientHero
+        title={isEditMode ? 'Edit Activity Record' : 'Add Activity Record'}
+        subtitle={isEditMode ? 'Update this activity' : 'Track any farming activity'}
+        onBack={() => navigation.goBack()}
+        compact
+      />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -758,42 +750,7 @@ export const AddExpenseEntryScreen = ({ route, navigation }: any) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F0F4F8',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8EDF2',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-  },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#F5F5F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  headerCenter: { flex: 1 },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    letterSpacing: 0.2,
-  },
-  headerSubtitle: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 1,
+    backgroundColor: '#F2F7F3',
   },
   scroll: { flex: 1 },
   scrollContent: {

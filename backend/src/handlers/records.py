@@ -20,7 +20,7 @@ import time
 import base64
 import binascii
 import boto3
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Key, Attr
 
 from lib.db import table, encode_key, decode_key
 from lib.auth import require_auth, require_admin, is_admin_role, AuthError, ForbiddenError
@@ -30,6 +30,30 @@ from lib.response import (
 )
 
 VALID_PRIORITIES = ('LOW', 'MEDIUM', 'HIGH')
+
+# Rule-based symptom-severity triage: no ML/LLM involved, just keyword matching
+# on the farmer's free-text notes. HIGH results surface on the admin Alerts list.
+SYMPTOM_HIGH_KEYWORDS = (
+    'dying', 'dead', 'died', 'wilting', 'wilted', 'spreading', 'spread',
+    'entire field', 'whole field', 'all plants', 'severe', 'severely',
+    'widespread', 'urgent', 'rotting', 'rotten', 'destroyed', 'collapse',
+    'collapsing', 'dying off',
+)
+SYMPTOM_MEDIUM_KEYWORDS = (
+    'yellowing', 'yellow', 'spots', 'spot', 'curling', 'curl', 'pest',
+    'infected', 'infection', 'insect', 'fungus', 'fungal', 'disease',
+    'wilt', 'holes', 'damage', 'damaged', 'weak', 'weakening', 'discoloration',
+)
+
+
+def classify_symptom_priority(notes: str) -> str:
+    text = (notes or '').lower()
+    if any(word in text for word in SYMPTOM_HIGH_KEYWORDS):
+        return 'HIGH'
+    if any(word in text for word in SYMPTOM_MEDIUM_KEYWORDS):
+        return 'MEDIUM'
+    return 'LOW'
+
 
 PAGE_SIZE = 100
 MAX_PHOTO_BYTES = 8 * 1024 * 1024  # 8MB
@@ -50,6 +74,8 @@ def handler(event, _ctx):
             return _upload_photo(event)
         if rid == 'advice' and m == 'POST':
             return _create_advice(event)
+        if rid == 'alerts' and m == 'GET':
+            return _list_alerts(event)
         if rid:
             if m == 'GET':    return _get(event, rid)
             if m == 'PUT':    return _update(event, rid)
@@ -132,6 +158,9 @@ def _create(event):
     sort_key  = f'{date}#{record_id}'
     now       = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
 
+    activity_type = body.get('activityType', '')
+    notes         = body.get('notes', '')
+
     record = {
         'cycleId':      cycle_id,
         'sortKey':      sort_key,
@@ -139,19 +168,54 @@ def _create(event):
         'date':         date,
         'stage':        body.get('stage', ''),
         'costType':     body.get('costType', ''),
-        'activityType': body.get('activityType', ''),
+        'activityType': activity_type,
         'expense':      body.get('expense', 0),
         'incomeAmount': body.get('incomeAmount'),
         'quantity':     body.get('quantity'),
-        'notes':        body.get('notes', ''),
+        'notes':        notes,
         'image':        body.get('image'),
         'createdAt':    now,
         'updatedAt':    now,
     }
+    if activity_type == 'Symptom':
+        record['priority'] = classify_symptom_priority(notes)
+
     # Strip None values before writing to DynamoDB
     record = {k: v for k, v in record.items() if v is not None}
     table('daily_records').put_item(Item=record)
     return created(record)
+
+
+def _list_alerts(event):
+    """Admin-only: HIGH-priority symptom reports, enriched with crop/land context."""
+    require_admin(event)
+    tbl    = table('daily_records')
+    cursor = query_param(event, 'cursor')
+    kwargs = {
+        'FilterExpression': Attr('activityType').eq('Symptom') & Attr('priority').eq('HIGH'),
+        'Limit': PAGE_SIZE,
+    }
+    if cursor:
+        kwargs['ExclusiveStartKey'] = decode_key(cursor)
+
+    resp  = tbl.scan(**kwargs)
+    items = resp.get('Items', [])
+
+    enriched = []
+    for item in items:
+        cycle = _get_cycle(item['cycleId'])
+        enriched.append({
+            **item,
+            'cropName': cycle.get('cropName') if cycle else None,
+            'landId':   cycle.get('landId') if cycle else None,
+            'farmerId': cycle.get('farmerId') if cycle else None,
+        })
+    enriched.sort(key=lambda r: r.get('createdAt', ''), reverse=True)
+
+    return ok({
+        'items':      enriched,
+        'nextCursor': encode_key(resp.get('LastEvaluatedKey')),
+    })
 
 
 def _create_advice(event):

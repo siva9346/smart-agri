@@ -18,6 +18,7 @@ interface ApiEnquiry {
 }
 
 const STATUS_COLOR: Record<string, string> = { OPEN: '#e67e22', IN_PROGRESS: '#2980b9', RESOLVED: '#27ae60', CLOSED: '#7f8c8d' };
+const STATUS_LABEL: Record<string, string> = { OPEN: 'Open', IN_PROGRESS: 'In Progress', RESOLVED: 'Resolved', CLOSED: 'Closed' };
 const STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
 
 export const EnquiryDetailsScreen = ({ route }: any) => {
@@ -62,7 +63,7 @@ export const EnquiryDetailsScreen = ({ route }: any) => {
         <View style={styles.header}>
           <Text style={styles.subject}>{enquiry.subject}</Text>
           <View style={[styles.badge, { backgroundColor: (STATUS_COLOR[enquiry.status] ?? '#666') + '20' }]}>
-            <Text style={[styles.badgeText, { color: STATUS_COLOR[enquiry.status] ?? '#666' }]}>{enquiry.status}</Text>
+            <Text style={[styles.badgeText, { color: STATUS_COLOR[enquiry.status] ?? '#666' }]}>{STATUS_LABEL[enquiry.status] ?? enquiry.status}</Text>
           </View>
         </View>
 
@@ -91,7 +92,7 @@ export const EnquiryDetailsScreen = ({ route }: any) => {
                 onPress={() => handleUpdate(s)}
                 disabled={saving}
               >
-                <Text style={[styles.statusBtnText, enquiry.status === s && styles.statusBtnTextActive]}>{s}</Text>
+                <Text style={[styles.statusBtnText, enquiry.status === s && styles.statusBtnTextActive]}>{STATUS_LABEL[s]}</Text>
               </TouchableOpacity>
             ))}
           </View>

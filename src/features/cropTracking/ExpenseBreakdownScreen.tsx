@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING } from '../../theme';
-import { PieChart, ArrowLeft, TrendingUp } from 'lucide-react-native';
+import { GradientHero } from '../../components/GradientHero';
+import { PieChart, TrendingUp } from 'lucide-react-native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
 
@@ -36,17 +38,8 @@ export const ExpenseBreakdownScreen = ({ route, navigation }: any) => {
   })).sort((a, b) => b.amount - a.amount);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-              <ArrowLeft size={22} color={COLORS.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Cost Breakdown</Text>
-      </View>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <GradientHero title="Cost Breakdown" onBack={() => navigation.goBack()} compact />
 
       <View style={styles.chartSection}>
           <View style={styles.chartContainer}>
@@ -83,43 +76,14 @@ export const ExpenseBreakdownScreen = ({ route, navigation }: any) => {
           <TrendingUp size={20} color={COLORS.primary} />
           <Text style={styles.footerText}>Breakdown based on {data.length} categories</Text>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: COLORS.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8EDF2',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-  },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#F5F5F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    letterSpacing: 0.2,
+    backgroundColor: '#F2F7F3',
   },
   chartSection: {
       alignItems: 'center',

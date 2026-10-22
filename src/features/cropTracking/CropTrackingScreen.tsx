@@ -2,9 +2,11 @@ import React, { useMemo, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
-import { ArrowLeft, Calendar, Activity, FileText, ImageIcon, Lightbulb, Plus } from 'lucide-react-native';
+import { Calendar, Activity, FileText, ImageIcon, Lightbulb, Plus, ChevronRight } from 'lucide-react-native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
+import { GradientHero } from '../../components/GradientHero';
+import { GlassCard } from '../../components/GlassCard';
 
 // ─── Enum-to-display-label map for uppercase expense categories ───────────────
 
@@ -188,24 +190,28 @@ export const CropTrackingScreen = ({ route, navigation }: any) => {
       <View style={styles.timelineRow}>
         {/* Spine */}
         <View style={styles.spine}>
-          <View style={[styles.dot, { backgroundColor: color }]} />
-          {!isLast && <View style={[styles.line, { backgroundColor: color + '40' }]} />}
+          <View style={[styles.dotRing, { borderColor: color + '30' }]}>
+            <View style={[styles.dot, { backgroundColor: color }]} />
+          </View>
+          {!isLast && <View style={[styles.line, { backgroundColor: color + '30' }]} />}
         </View>
 
         {/* Card */}
-        <TouchableOpacity
+        <GlassCard
           style={[styles.card, { borderLeftColor: color }]}
-          activeOpacity={0.7}
           onPress={() => navigation.navigate('ActivityDetails', { recordId: item.id, cropCycleId, readOnly })}
         >
           {/* Top row: date + badge */}
           <View style={styles.cardTop}>
-            <View style={styles.dateRow}>
-              <Calendar size={12} color={color} />
+            <View style={[styles.dateRow, { backgroundColor: color + '12' }]}>
+              <Calendar size={11} color={color} />
               <Text style={[styles.dateText, { color }]}>{item.date}</Text>
             </View>
-            <View style={[styles.activityBadge, { backgroundColor: bg }]}>
-              <Text style={[styles.activityLabel, { color }]}>{label}</Text>
+            <View style={styles.cardTopRight}>
+              <View style={[styles.activityBadge, { backgroundColor: bg }]}>
+                <Text style={[styles.activityLabel, { color }]}>{label}</Text>
+              </View>
+              <ChevronRight size={16} color="#C5CBD3" />
             </View>
           </View>
 
@@ -230,6 +236,15 @@ export const CropTrackingScreen = ({ route, navigation }: any) => {
                       Recommended: {item.recommendedAction}
                     </Text>
                   )}
+                </View>
+              )}
+
+              {/* Symptom: AI-assessed priority badge */}
+              {item.activityType === 'Symptom' && !!item.priority && (
+                <View style={[styles.priorityBadge, styles.symptomPriorityBadge, { backgroundColor: (PRIORITY_COLOR[item.priority] ?? COLORS.primary) + '20' }]}>
+                  <Text style={[styles.priorityText, { color: PRIORITY_COLOR[item.priority] ?? COLORS.primary }]}>
+                    {item.priority} PRIORITY
+                  </Text>
                 </View>
               )}
 
@@ -270,31 +285,23 @@ export const CropTrackingScreen = ({ route, navigation }: any) => {
 
             {/* Photo indicator */}
             {item.image ? (
-              <Image source={{ uri: item.image }} style={styles.photoThumb} />
+              <View style={styles.photoThumbWrap}>
+                <Image source={{ uri: item.image }} style={styles.photoThumb} />
+              </View>
             ) : (
               <View style={styles.photoBox}>
-                <ImageIcon size={18} color="#CCC" />
-                <Text style={styles.photoText}>No Photo</Text>
+                <ImageIcon size={16} color="#CCC" />
               </View>
             )}
           </View>
-        </TouchableOpacity>
+        </GlassCard>
       </View>
     );
   }, [records.length, cropCycleId, readOnly, navigation]);
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={22} color={COLORS.text} />
-        </TouchableOpacity>
-        <View style={styles.headerText}>
-          <Text style={styles.title}>{cropName || 'Crop Records'}</Text>
-          <Text style={styles.subtitle}>Activity Timeline</Text>
-        </View>
-      </View>
+      <GradientHero title={cropName || 'Crop Records'} subtitle="Activity Timeline" onBack={() => navigation.goBack()} compact />
 
       <FlatList
         data={records}
@@ -322,9 +329,9 @@ export const CropTrackingScreen = ({ route, navigation }: any) => {
                 { label: 'Condition',  color: ACTIVITY_COLOR['Weekly Condition'] },
                 { label: 'Advice',     color: ACTIVITY_COLOR['Advice Received'] },
               ].map(l => (
-                <View key={l.label} style={styles.legendItem}>
+                <View key={l.label} style={[styles.legendItem, { backgroundColor: l.color + '14' }]}>
                   <View style={[styles.legendDot, { backgroundColor: l.color }]} />
-                  <Text style={styles.legendLabel}>{l.label}</Text>
+                  <Text style={[styles.legendLabel, { color: l.color }]}>{l.label}</Text>
                 </View>
               ))}
             </View>
@@ -403,29 +410,7 @@ export const CropTrackingScreen = ({ route, navigation }: any) => {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F9FC' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8EDF2',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-  },
-  backBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: '#F5F5F5',
-    justifyContent: 'center', alignItems: 'center', marginRight: 12,
-  },
-  headerText: { flex: 1 },
-  title: { fontSize: 17, fontWeight: '700', color: '#1A1A1A', letterSpacing: 0.2 },
-  subtitle: { fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
+  container: { flex: 1, backgroundColor: '#F2F7F3' },
   listPad: { paddingBottom: 110 },
   // Section heading
   sectionHeading: {
@@ -441,9 +426,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row', flexWrap: 'wrap',
     paddingHorizontal: SPACING.md, marginBottom: SPACING.md, gap: 10,
   },
-  legendItem: { flexDirection: 'row', alignItems: 'center' },
-  legendDot: { width: 8, height: 8, borderRadius: 4, marginRight: 4 },
-  legendLabel: { fontSize: 11, color: COLORS.textSecondary },
+  legendItem: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10,
+  },
+  legendDot: { width: 7, height: 7, borderRadius: 3.5, marginRight: 5 },
+  legendLabel: { fontSize: 11, fontWeight: '600' },
   // Insights
   insightsBox: {
     backgroundColor: '#FFF8E1',
@@ -472,24 +460,27 @@ const styles = StyleSheet.create({
   },
   spine: {
     width: 22, alignItems: 'center',
-    marginRight: 10, marginTop: 4,
+    marginRight: 10, marginTop: 8,
   },
-  dot: { width: 12, height: 12, borderRadius: 6, marginBottom: 4 },
-  line: { flex: 1, width: 2, minHeight: 40 },
+  dotRing: {
+    width: 18, height: 18, borderRadius: 9, borderWidth: 3,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 4,
+  },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  line: { flex: 1, width: 2, minHeight: 36 },
   card: {
-    flex: 1, backgroundColor: '#FFF',
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md,
-    elevation: 2, shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5,
-    borderLeftWidth: 4,
+    flex: 1, padding: SPACING.md, borderLeftWidth: 4,
   },
   cardTop: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', marginBottom: SPACING.sm,
   },
-  dateRow: { flexDirection: 'row', alignItems: 'center' },
-  dateText: { fontSize: 12, fontWeight: '600', marginLeft: 4 },
+  cardTopRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  dateRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8,
+  },
+  dateText: { fontSize: 11, fontWeight: '700', marginLeft: 4 },
   activityBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   activityLabel: { fontSize: 10, fontWeight: 'bold' },
   cardBody: { flexDirection: 'row', alignItems: 'flex-start' },
@@ -503,6 +494,7 @@ const styles = StyleSheet.create({
   },
   adviceTitle: { fontSize: 14, fontWeight: 'bold', color: '#1A1A1A', flex: 1, marginRight: 8 },
   priorityBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5 },
+  symptomPriorityBadge: { alignSelf: 'flex-start', marginBottom: 6 },
   priorityText: { fontSize: 9, fontWeight: 'bold', letterSpacing: 0.5 },
   adviceRecommended: { fontSize: 12, color: '#5E35B1', fontStyle: 'italic', marginBottom: 4 },
   costRow: { flexDirection: 'row', alignItems: 'flex-end' },
@@ -510,15 +502,15 @@ const styles = StyleSheet.create({
   costAmount: { fontSize: 20, fontWeight: 'bold' },
   noNotesHint: { fontSize: 12, color: '#BBB', fontStyle: 'italic' },
   photoBox: {
-    width: 54, height: 54, backgroundColor: '#F5F5F5',
-    borderRadius: 8, justifyContent: 'center',
-    alignItems: 'center', marginLeft: 10,
+    width: 54, height: 54, backgroundColor: 'rgba(0,0,0,0.03)',
+    borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginLeft: 10,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)', borderStyle: 'dashed',
   },
-  photoText: { fontSize: 8, color: '#AAA', marginTop: 4 },
-  photoThumb: {
-    width: 54, height: 54, borderRadius: 8,
-    marginLeft: 10, backgroundColor: '#EAEDF1',
+  photoThumbWrap: {
+    marginLeft: 10, borderRadius: 10, overflow: 'hidden',
+    elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3,
   },
+  photoThumb: { width: 54, height: 54, backgroundColor: '#EAEDF1' },
   // Harvest income display in timeline card
   incomeBlock: { marginTop: 4 },
   quantityText: { fontSize: 12, color: '#555', marginBottom: 4 },

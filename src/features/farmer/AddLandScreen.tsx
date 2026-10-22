@@ -3,10 +3,12 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   Alert, ScrollView, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { MapPin, CheckCircle } from 'lucide-react-native';
 import { useSelector } from 'react-redux';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
+import { GradientHero } from '../../components/GradientHero';
 import { api } from '../../services/api';
 import { RootState } from '../../store';
 
@@ -63,7 +65,9 @@ export const AddLandScreen = ({ navigation }: any) => {
   };
 
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <GradientHero title="Add New Land" subtitle="Register a new farm plot" onBack={() => navigation.goBack()} compact />
+      <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.field}>
         <Text style={styles.label}>Land Name *</Text>
         <TextInput
@@ -145,12 +149,14 @@ export const AddLandScreen = ({ navigation }: any) => {
       >
         <Text style={styles.buttonText}>{loading ? 'Saving...' : 'Save Land'}</Text>
       </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container:      { flex: 1, padding: SPACING.lg, backgroundColor: COLORS.background },
+  safe:           { flex: 1, backgroundColor: '#F2F7F3' },
+  container:      { flex: 1, padding: SPACING.lg },
   field:          { marginBottom: SPACING.lg },
   label:          { fontSize: 14, color: COLORS.text, marginBottom: SPACING.xs, fontWeight: '600' },
   input:          { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, fontSize: 16, color: COLORS.text },

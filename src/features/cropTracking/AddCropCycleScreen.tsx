@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING } from '../../theme';
-import { Sprout, Calendar, Layers, Save, ArrowLeft } from 'lucide-react-native';
+import { Sprout, Calendar, Layers, Save } from 'lucide-react-native';
+import { GradientHero } from '../../components/GradientHero';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../store';
 import { addCropCycle } from '../../store/cropSlice';
@@ -18,7 +19,6 @@ const adaptCycle = (c: any) => ({
   startDate: c.startDate,
   endDate:   c.endDate || undefined,
   area:      c.area || undefined,
-  cropAge:   0,
   status:    (c.status === 'COMPLETED' ? 'completed' : 'active') as 'active' | 'completed' | 'current',
 });
 
@@ -68,15 +68,7 @@ export const AddCropCycleScreen = ({ route, navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={22} color={COLORS.text} />
-        </TouchableOpacity>
-        <View>
-          <Text style={styles.headerTitle}>New Cultivation Cycle</Text>
-          <Text style={styles.headerSub}>Start tracking a new crop</Text>
-        </View>
-      </View>
+      <GradientHero title="New Cultivation Cycle" subtitle="Start tracking a new crop" onBack={() => navigation.goBack()} compact />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
@@ -143,20 +135,7 @@ export const AddCropCycleScreen = ({ route, navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F0F4F8' },
-  header: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFF', paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: '#E8EDF2',
-    elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05, shadowRadius: 3,
-  },
-  backBtn: {
-    width: 38, height: 38, borderRadius: 19, backgroundColor: '#F5F5F5',
-    justifyContent: 'center', alignItems: 'center', marginRight: 12,
-  },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A1A' },
-  headerSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
+  safe: { flex: 1, backgroundColor: '#F2F7F3' },
   form: { padding: SPACING.md, paddingBottom: 40 },
   landBadge: {
     flexDirection: 'row', alignItems: 'center',

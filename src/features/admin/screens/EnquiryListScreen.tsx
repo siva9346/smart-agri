@@ -18,6 +18,7 @@ interface ApiEnquiry {
 
 const FILTERS = ['All', 'OPEN', 'IN_PROGRESS', 'RESOLVED'];
 const STATUS_COLOR: Record<string, string> = { OPEN: '#e67e22', IN_PROGRESS: '#2980b9', RESOLVED: '#27ae60', CLOSED: '#7f8c8d' };
+const STATUS_LABEL: Record<string, string> = { All: 'All', OPEN: 'Open', IN_PROGRESS: 'In Progress', RESOLVED: 'Resolved', CLOSED: 'Closed' };
 
 export const EnquiryListScreen = ({ navigation }: any) => {
   const [enquiries,   setEnquiries]   = useState<ApiEnquiry[]>([]);
@@ -64,7 +65,7 @@ export const EnquiryListScreen = ({ navigation }: any) => {
       <View style={styles.cardHeader}>
         <Text style={styles.subject}>{item.subject}</Text>
         <View style={[styles.badge, { backgroundColor: (STATUS_COLOR[item.status] ?? '#666') + '20' }]}>
-          <Text style={[styles.badgeText, { color: STATUS_COLOR[item.status] ?? '#666' }]}>{item.status}</Text>
+          <Text style={[styles.badgeText, { color: STATUS_COLOR[item.status] ?? '#666' }]}>{STATUS_LABEL[item.status] ?? item.status}</Text>
         </View>
       </View>
       <Text style={styles.message} numberOfLines={2}>{item.message}</Text>
@@ -84,7 +85,7 @@ export const EnquiryListScreen = ({ navigation }: any) => {
             style={[styles.filterBtn, filter === f && styles.filterBtnActive]}
             onPress={() => handleFilterChange(f)}
           >
-            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
+            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{STATUS_LABEL[f]}</Text>
           </TouchableOpacity>
         ))}
       </View>

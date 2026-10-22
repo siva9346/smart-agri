@@ -10,12 +10,16 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ShoppingCart } from 'lucide-react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { UserRole } from '../../../types/product';
 import { ApiProduct, productService } from '../services/productService';
 import { ProductCard } from '../components/ProductCard';
 import { addToCart } from '../../../store/cartSlice';
 import { RootState } from '../../../store';
+import { GradientHero } from '../../../components/GradientHero';
+import { COLORS, SPACING } from '../../../theme';
 
 export const ProductListScreen = ({ navigation, route }: any) => {
   const role: UserRole = route.params?.role || 'customer';
@@ -66,103 +70,87 @@ export const ProductListScreen = ({ navigation, route }: any) => {
     Alert.alert('Success', `${product.name} added to cart!`);
   };
 
-  if (loading && !refreshing) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#2e7d32" />
-        <Text style={styles.loadingText}>Loading products...</Text>
-      </View>
-    );
-  }
+  const CartButton = role === 'customer' ? (
+    <TouchableOpacity onPress={() => navigation.navigate('Cart')} style={styles.cartBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+      <ShoppingCart size={20} color="#FFFFFF" />
+      {cartCount > 0 && (
+        <View style={styles.cartBadge}>
+          <Text style={styles.cartBadgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  ) : undefined;
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={products}
-        keyExtractor={(item) => item.productId}
-        renderItem={({ item }) => (
-          <ProductCard
-            product={item}
-            role={role}
-            onViewDetails={(p) => navigation.navigate('ProductDetails', { productId: p.productId })}
-            onAddToCart={handleAddToCart}
-            onEdit={(p) => navigation.navigate('EditStock', { product: p })}
-          />
-        )}
-        ListHeaderComponent={
-          <View style={styles.headerContainer}>
-            <Text style={styles.headerText}>Please select the required fertilizer and medicine.</Text>
-            <Text style={styles.headerTextTamil}>தேவையான உரமும் மருந்தையும் தேர்வு செய்யவும்.</Text>
-          </View>
-        }
-        initialNumToRender={8}
-        maxToRenderPerBatch={8}
-        windowSize={10}
-        removeClippedSubviews={Platform.OS === 'android'}
-        onEndReached={() => nextCursor && !loadingMore && fetchProducts(nextCursor)}
-        onEndReachedThreshold={0.4}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2e7d32']} />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No products found.</Text>
-          </View>
-        }
-        contentContainerStyle={styles.listContent}
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <GradientHero
+        title="Fertilizer Store"
+        subtitle="தேவையான உரமும் மருந்தையும் தேர்வு செய்யவும்"
+        onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+        right={CartButton}
+        compact
       />
 
-      <TouchableOpacity
-        style={[styles.fab, { bottom: 20, backgroundColor: '#1565c0' }]}
-        onPress={() => navigation.navigate('Cart')}
-      >
-        <Text style={styles.fabText}>Cart</Text>
-        {cartCount > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    </View>
+      {loading && !refreshing ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Loading products...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={products}
+          keyExtractor={(item) => item.productId}
+          numColumns={2}
+          columnWrapperStyle={styles.row}
+          renderItem={({ item }) => (
+            <View style={styles.cardWrap}>
+              <ProductCard
+                product={item}
+                role={role}
+                onViewDetails={(p) => navigation.navigate('ProductDetails', { productId: p.productId })}
+                onAddToCart={handleAddToCart}
+                onEdit={(p) => navigation.navigate('EditStock', { product: p })}
+              />
+            </View>
+          )}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={10}
+          removeClippedSubviews={Platform.OS === 'android'}
+          onEndReached={() => nextCursor && !loadingMore && fetchProducts(nextCursor)}
+          onEndReachedThreshold={0.4}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No products found.</Text>
+            </View>
+          }
+          contentContainerStyle={styles.listContent}
+        />
+      )}
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container:       { flex: 1, backgroundColor: '#f5f5f5' },
+  safe:            { flex: 1, backgroundColor: '#F2F7F3' },
   centered:        { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText:     { marginTop: 12, color: '#666' },
-  listContent:     { paddingBottom: 100 },
-  headerContainer: { padding: 16, backgroundColor: '#fff', marginBottom: 8, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  headerText:      { fontSize: 16, color: '#333', marginBottom: 4 },
-  headerTextTamil: { fontSize: 15, color: '#666' },
+  loadingText:     { marginTop: 12, color: COLORS.textSecondary },
+  listContent:     { padding: SPACING.md, paddingBottom: 40 },
+  row:             { gap: SPACING.sm },
+  cardWrap:        { flex: 1, maxWidth: '50%' },
   emptyContainer:  { padding: 32, alignItems: 'center' },
-  emptyText:       { fontSize: 16, color: '#999' },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+  emptyText:       { fontSize: 16, color: COLORS.textSecondary },
+  cartBtn: {
+    width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
   },
-  fabText:  { color: '#fff', fontSize: 12, fontWeight: 'bold' },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#e53935',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
+  cartBadge: {
+    position: 'absolute', top: -4, right: -4,
+    backgroundColor: '#FF5252', borderRadius: 9, minWidth: 18, height: 18,
+    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3,
   },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
+  cartBadgeText: { color: '#fff', fontSize: 9.5, fontWeight: 'bold' },
 });

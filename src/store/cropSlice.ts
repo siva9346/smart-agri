@@ -27,7 +27,6 @@ export interface CropCycle {
   startDate: string;
   endDate?: string;
   area?: string;
-  cropAge: number;
   status: 'current' | 'completed' | 'active';
   records?: DailyRecord[];
 }
