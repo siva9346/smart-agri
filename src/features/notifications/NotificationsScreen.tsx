@@ -1,134 +1,136 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform } from 'react-native';
 import { useDispatch } from 'react-redux';
-import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
-import { Bell, X } from 'lucide-react-native';
-import { api } from '../../services/api';
-import { LoadingState, EmptyState, ErrorState } from '../../components/States';
-import { markAllSeen } from '../../store/notificationSlice';
+import { Bell, CheckCheck, AlertTriangle, ClipboardList, FileText, Stethoscope } from 'lucide-react-native';
+import { inboxApi, InboxItem } from '../../services/platform';
+import { usePaged, useAuth } from '../../hooks/useApi';
+import { refreshUnreadCount } from './useUnreadNotifications';
+import { openActionLink } from '../../navigation/actionLinks';
+import { Loading, ErrorView, Empty, Segmented, Sheet, Button, Tag, formatDate, timeAgo, humanize, toast } from '../../ui';
+import { TOKENS, TYPE } from '../../theme';
 
-interface ApiNotif {
-  notifId: string;
-  title: string;
-  message: string;
-  type: string;
-  createdAt: string;
-}
-
-const formatDateTime = (iso: string) => {
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
-  return d.toLocaleString('en-IN', {
-    day: 'numeric', month: 'short', year: 'numeric',
-    hour: 'numeric', minute: '2-digit',
-  });
+const ICONS: Record<string, any> = {
+  CONSULTATION: Stethoscope, ASSIGNMENT: Stethoscope, QUOTATION: FileText, CRM_TASK: ClipboardList,
+  REMINDER: ClipboardList, IMPORTANT: AlertTriangle, MAINTENANCE: AlertTriangle, ESCALATION: AlertTriangle,
 };
 
+// Notification Center: full per-user history (independent of banner dismissal).
 export const NotificationsScreen = () => {
   const dispatch = useDispatch();
-  const [notifs,     setNotifs]     = useState<ApiNotif[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState<string | null>(null);
-  const [nextCursor, setNextCursor] = useState<string | undefined>();
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [selected,   setSelected]   = useState<ApiNotif | null>(null);
+  const { role } = useAuth();
+  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [selected, setSelected] = useState<InboxItem | null>(null);
+  const list = usePaged(cursor => inboxApi.list(cursor), []);
 
-  const fetchNotifs = useCallback(async (cursor?: string) => {
-    if (cursor) setLoadingMore(true); else setLoading(true);
+  const markRead = useCallback(async (item: InboxItem) => {
+    if (item.isRead) return;
+    list.setItems(prev => prev.map(i => i.recipientKey === item.recipientKey ? { ...i, isRead: true } : i));
     try {
-      const path = cursor ? `/notifications?cursor=${cursor}` : '/notifications';
-      const res  = await api.get<{ items: ApiNotif[]; nextCursor?: string }>(path);
-      setNotifs(prev => cursor ? [...prev, ...res.items] : res.items);
-      setNextCursor(res.nextCursor);
-      setError(null);
-      if (!cursor) {
-        const latest = res.items.reduce((max, n) => (n.createdAt > max ? n.createdAt : max), '');
-        dispatch(markAllSeen(latest || new Date().toISOString()));
-      }
-    } catch (err: any) {
-      setError(err?.message ?? 'Failed to load notifications');
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
+      await inboxApi.read(item.recipientKey);
+      refreshUnreadCount(dispatch);
+    } catch {
+      list.reload();
     }
-  }, [dispatch]);
+  }, [dispatch, list]);
 
-  useFocusEffect(useCallback(() => { fetchNotifs(); }, [fetchNotifs]));
+  const openItem = useCallback((item: InboxItem) => {
+    setSelected(item);
+    markRead(item);
+  }, [markRead]);
 
-  const renderItem = useCallback(({ item }: { item: ApiNotif }) => (
-    <TouchableOpacity style={styles.card} onPress={() => setSelected(item)} activeOpacity={0.75}>
-      <View style={styles.iconCircle}>
-        <Bell size={18} color={COLORS.primary} />
-      </View>
-      <View style={styles.content}>
-        <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-        <Text style={styles.message} numberOfLines={2}>{item.message}</Text>
-        <Text style={styles.date}>{formatDateTime(item.createdAt)}</Text>
-      </View>
-    </TouchableOpacity>
-  ), []);
+  const readAll = async () => {
+    try {
+      const res = await inboxApi.readAll();
+      list.setItems(prev => prev.map(i => ({ ...i, isRead: true })));
+      refreshUnreadCount(dispatch);
+      toast(res.updated ? `Marked ${res.updated} as read` : 'Everything is already read', 'info');
+    } catch (e: any) {
+      toast(e.message, 'error');
+    }
+  };
 
-  if (loading) return <LoadingState />;
-  if (error)   return <ErrorState error={error} />;
+  const data = filter === 'unread' ? list.items.filter(i => !i.isRead) : list.items;
+
+  const renderItem = useCallback(({ item }: { item: InboxItem }) => {
+    const Icon = ICONS[item.type] ?? Bell;
+    return (
+      <TouchableOpacity style={[styles.card, !item.isRead && styles.unread]} onPress={() => openItem(item)} activeOpacity={0.7}
+                        accessibilityLabel={`${item.isRead ? '' : 'Unread. '}${item.title}`}>
+        <View style={styles.icon}><Icon size={18} color={TOKENS.colorPrimary} /></View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {!item.isRead && <View style={styles.dot} />}
+            <Text style={[TYPE.h3, { flex: 1, fontSize: 14.5 }, !item.isRead && { fontWeight: '700' }]} numberOfLines={1}>{item.title}</Text>
+            <Text style={TYPE.caption}>{timeAgo(item.createdAt)}</Text>
+          </View>
+          <Text style={TYPE.secondary} numberOfLines={2}>{item.message}</Text>
+          {(item.isExpired || item.priority === 'HIGH') && (
+            <View style={{ flexDirection: 'row', gap: 6, marginTop: 2 }}>
+              {item.priority === 'HIGH' && <Tag text="High priority" color="orange" small />}
+              {item.isExpired && <Tag text="Expired" small />}
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  }, [openItem]);
+
+  if (list.loading) return <Loading />;
+  if (list.error) return <ErrorView message={list.error} onRetry={list.reload} />;
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <View style={styles.safe}>
+      <View style={styles.toolbar}>
+        <Segmented value={filter} onChange={setFilter}
+                   options={[{ label: 'All', value: 'all' }, { label: 'Unread', value: 'unread' }]} />
+        <Button title="Mark all read" type="text" size="sm" icon={CheckCheck} onPress={readAll} />
+      </View>
       <FlatList
-        data={notifs}
-        keyExtractor={i => i.notifId}
+        data={data}
+        keyExtractor={i => i.recipientKey}
         contentContainerStyle={styles.list}
         renderItem={renderItem}
-        onEndReached={() => nextCursor && !loadingMore && fetchNotifs(nextCursor)}
+        onEndReached={list.loadMore}
         onEndReachedThreshold={0.4}
+        refreshing={list.refreshing}
+        onRefresh={list.refresh}
         removeClippedSubviews={Platform.OS === 'android'}
-        ListEmptyComponent={<EmptyState message="No notifications yet" />}
+        ListEmptyComponent={<Empty title={filter === 'unread' ? 'All caught up' : 'No notifications yet'}
+                                   description="Announcements, consultation updates and reminders appear here." />}
       />
 
-      <Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => setSelected(null)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <View style={styles.iconCircle}>
-                <Bell size={18} color={COLORS.primary} />
-              </View>
-              <TouchableOpacity onPress={() => setSelected(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <X size={22} color={COLORS.textSecondary} />
-              </TouchableOpacity>
+      <Sheet visible={!!selected} onClose={() => setSelected(null)} title={selected?.title}
+             footer={selected?.actionLink ? (
+               <Button title="Open" type="primary" block onPress={() => {
+                 const link = selected.actionLink;
+                 setSelected(null);
+                 openActionLink(link, role);
+               }} />
+             ) : undefined}>
+        {selected && (
+          <View style={{ gap: 10 }}>
+            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+              <Tag text={humanize(selected.type)} color="green" />
+              {selected.priority !== 'NORMAL' && <Tag text={`${humanize(selected.priority)} priority`} color="orange" />}
             </View>
-            <Text style={styles.modalTitle}>{selected?.title}</Text>
-            <Text style={styles.modalDate}>{selected ? formatDateTime(selected.createdAt) : ''}</Text>
-            <Text style={styles.modalMessage}>{selected?.message}</Text>
+            <Text style={TYPE.caption}>{formatDate(selected.createdAt)}{selected.expiresAt ? ` · expires ${formatDate(selected.expiresAt)}` : ''}</Text>
+            <Text style={[TYPE.body, { fontSize: 15.5, lineHeight: 23 }]}>{selected.message}</Text>
           </View>
-        </View>
-      </Modal>
-    </SafeAreaView>
+        )}
+      </Sheet>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.background },
-  list: { padding: SPACING.md },
+  safe: { flex: 1, backgroundColor: TOKENS.colorBgLayout },
+  toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 12 },
+  list: { padding: 16, gap: 8, flexGrow: 1 },
   card: {
-    flexDirection: 'row', alignItems: 'flex-start',
-    backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md, marginBottom: SPACING.sm,
-    elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2,
+    flexDirection: 'row', gap: 12, backgroundColor: '#FFF', borderRadius: TOKENS.radius, padding: 14,
+    borderWidth: 1, borderColor: TOKENS.colorBorder,
   },
-  iconCircle: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center',
-    marginRight: SPACING.sm,
-  },
-  content: { flex: 1 },
-  title: { fontSize: 15, fontWeight: 'bold', color: COLORS.text },
-  message: { fontSize: 13, color: COLORS.textSecondary, marginTop: 3 },
-  date: { fontSize: 11, color: COLORS.textSecondary, marginTop: 6 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: SPACING.lg },
-  modalCard: { backgroundColor: '#FFF', borderRadius: BORDER_RADIUS.lg, padding: SPACING.lg },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.text, marginBottom: 4 },
-  modalDate: { fontSize: 12, color: COLORS.textSecondary, marginBottom: SPACING.md },
-  modalMessage: { fontSize: 15, color: COLORS.text, lineHeight: 22 },
+  unread: { borderColor: TOKENS.colorPrimaryBorder, backgroundColor: '#FBFEFB' },
+  icon: { width: 36, height: 36, borderRadius: 18, backgroundColor: TOKENS.colorPrimaryBg, alignItems: 'center', justifyContent: 'center' },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: TOKENS.colorPrimary },
 });

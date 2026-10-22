@@ -19,6 +19,14 @@ TABLES = {
     'notifications': os.environ['NOTIFICATIONS_TABLE'],
     'enquiries':     os.environ['ENQUIRIES_TABLE'],
     'symptoms':      os.environ['SYMPTOMS_TABLE'],
+    'consultations': os.environ['CONSULTATIONS_TABLE'],
+    'leads':         os.environ['LEADS_TABLE'],
+    'lead_activities': os.environ['LEAD_ACTIVITIES_TABLE'],
+    'quotations':    os.environ['QUOTATIONS_TABLE'],
+    'tasks':         os.environ['TASKS_TABLE'],
+    'inbox':         os.environ['INBOX_TABLE'],
+    'settings':      os.environ['SETTINGS_TABLE'],
+    'audit':         os.environ['AUDIT_TABLE'],
 }
 
 
@@ -39,3 +47,8 @@ def decode_key(token: str | None) -> dict | None:
         return json.loads(base64.urlsafe_b64decode(token.encode()).decode())
     except Exception:
         return None
+
+
+def client():
+    """Low-level client sharing the resource's high-level (python-typed) serialization."""
+    return _resource.meta.client

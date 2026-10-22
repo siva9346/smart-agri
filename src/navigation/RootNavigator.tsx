@@ -1,12 +1,47 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
-import { useSelector } from 'react-redux';
-import { LogOut, Home, ShoppingBag, CloudRain, ShoppingCart, User as UserIcon, ArrowLeft, Bell } from 'lucide-react-native';
+import { useSelector, useDispatch } from 'react-redux';
+import { LogOut, Home, ShoppingBag, CloudRain, ShoppingCart, User as UserIcon, ArrowLeft, Bell, Menu } from 'lucide-react-native';
 import { NotificationsScreen } from '../features/notifications/NotificationsScreen';
 import { useUnreadNotifications } from '../features/notifications/useUnreadNotifications';
+import { CustomDrawer, useDrawer } from './CustomDrawer';
+import { AppDrawerContent } from './AppDrawerContent';
+import { updateUser } from '../store/authSlice';
+import { profileApi } from '../services/platform';
+import { ConsultationRequestScreen } from '../features/consultations/ConsultationRequestScreen';
+import { ConsultationListScreen } from '../features/consultations/ConsultationListScreen';
+import { ConsultationDetailScreen } from '../features/consultations/ConsultationDetailScreen';
+import { CrmDashboardScreen } from '../features/crm/CrmDashboardScreen';
+import { LeadListScreen } from '../features/crm/LeadListScreen';
+import { LeadFormScreen } from '../features/crm/LeadFormScreen';
+import { LeadDetailScreen } from '../features/crm/LeadDetailScreen';
+import { PipelineScreen } from '../features/crm/PipelineScreen';
+import { CrmReportsScreen } from '../features/crm/CrmReportsScreen';
+import { CustomerProfileScreen } from '../features/crm/CustomerProfileScreen';
+import { ActivityFeedScreen } from '../features/crm/ActivityFeedScreen';
+import { QuotationBuilderScreen } from '../features/quotations/QuotationBuilderScreen';
+import { QuotationListScreen } from '../features/quotations/QuotationListScreen';
+import { QuotationDetailScreen } from '../features/quotations/QuotationDetailScreen';
+import { TaskListScreen } from '../features/tasks/TaskListScreen';
+import { TaskFormScreen } from '../features/tasks/TaskFormScreen';
+import { AiAssistantScreen } from '../features/ai/AiAssistantScreen';
+import { SettingsScreen } from '../features/settings/SettingsScreen';
+import { PreferencesScreen } from '../features/settings/PreferencesScreen';
+import { UserManagementScreen } from '../features/admin/team/UserManagementScreen';
+import { UserFormScreen } from '../features/admin/team/UserFormScreen';
+import { ExpertCoverageScreen } from '../features/admin/team/ExpertCoverageScreen';
+import { AssignmentRulesScreen } from '../features/admin/settings/AssignmentRulesScreen';
+import { QuotationSettingsScreen } from '../features/admin/settings/QuotationSettingsScreen';
+import { RolePermissionsScreen } from '../features/admin/settings/RolePermissionsScreen';
+import { AiConfigScreen } from '../features/admin/settings/AiConfigScreen';
+import { AuditLogScreen } from '../features/admin/settings/AuditLogScreen';
+import { AnnouncementsScreen } from '../features/admin/announcements/AnnouncementsScreen';
+import { AnnouncementComposerScreen } from '../features/admin/announcements/AnnouncementComposerScreen';
+import { WorkDashboardScreen } from '../features/dashboard/WorkDashboardScreen';
+import { AdminOverviewScreen } from '../features/dashboard/AdminOverviewScreen';
 import { RootState } from '../store';
 import { FarmerDashboard } from '../features/farmer/FarmerDashboard';
 import { RainUpdates, SymptomsView } from '../features/advisory/AdvisoryScreens';
@@ -27,6 +62,7 @@ import { CustomerDetailsScreen } from '../features/admin/screens/CustomerDetails
 import { EnquiryListScreen } from '../features/admin/screens/EnquiryListScreen';
 import { EnquiryDetailsScreen } from '../features/admin/screens/EnquiryDetailsScreen';
 import { SymptomsListScreen } from '../features/admin/screens/SymptomsListScreen';
+import { AlertsListScreen } from '../features/admin/screens/AlertsListScreen';
 import { AddSymptomScreen } from '../features/admin/screens/AddSymptomScreen';
 import { EditSymptomScreen } from '../features/admin/screens/EditSymptomScreen';
 import { NotificationListScreen } from '../features/admin/screens/NotificationListScreen';
@@ -61,7 +97,21 @@ import { UserRole } from '../types/domain';
 const Tab = createBottomTabNavigator();
 const FarmerStack = createNativeStackNavigator();
 const AdminStack = createNativeStackNavigator();
+const WorkStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
+
+const MenuButton = () => {
+  const { openDrawer } = useDrawer();
+  return (
+    <TouchableOpacity
+      onPress={openDrawer}
+      style={styles.circularBackBtn}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    >
+      <Menu size={20} color="#1A1A1A" />
+    </TouchableOpacity>
+  );
+};
 
 const HeaderTitle = () => (
   <View style={styles.headerTitleContainer}>
@@ -75,16 +125,20 @@ const HeaderTitle = () => (
 );
 
 const HeaderRight = ({ onLogout, navigation, showBell }: { onLogout: () => void; navigation: any; showBell?: boolean }) => {
-  const hasUnread = useSelector((s: RootState) => s.notification.hasUnread);
+  const unread = useSelector((s: RootState) => s.notification.unreadCount);
   return (
   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
     {showBell && (
       <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.logoutButton}>
         <Bell color={COLORS.primary} size={22} />
-        {hasUnread && <View style={styles.unreadDot} />}
+        {unread > 0 && (
+          <View style={styles.unreadBadge} accessibilityLabel={`${unread} unread notifications`}>
+            <Text style={styles.unreadBadgeText}>{unread > 99 ? '99+' : unread}</Text>
+          </View>
+        )}
       </TouchableOpacity>
     )}
-    <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.logoutButton}>
+    <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.logoutButton} accessibilityLabel="Settings">
       <UserIcon color={COLORS.primary} size={22} />
     </TouchableOpacity>
     <TouchableOpacity onPress={onLogout} style={styles.logoutButton}>
@@ -93,6 +147,50 @@ const HeaderRight = ({ onLogout, navigation, showBell }: { onLogout: () => void;
   </View>
   );
 };
+
+/**
+ * Screens available to every role's stack (customer-facing consultation / quotation /
+ * AI / settings screens). Internal-only screens are added with `internal`.
+ * Visibility is UI convenience; the backend enforces every permission.
+ */
+const sharedScreens = (S: any, internal: boolean) => (
+  <>
+    <S.Screen name="ConsultationRequest" component={ConsultationRequestScreen} options={{ title: 'Get Suggestions from Experts' }} />
+    <S.Screen name="ConsultationList" component={ConsultationListScreen} options={{ title: internal ? 'Consultations' : 'My Consultations' }} />
+    <S.Screen name="ConsultationDetail" component={ConsultationDetailScreen} options={{ title: 'Consultation' }} />
+    <S.Screen name="QuotationList" component={QuotationListScreen} options={{ title: internal ? 'Quotations' : 'My Quotations' }} />
+    <S.Screen name="QuotationDetail" component={QuotationDetailScreen} options={{ title: 'Quotation' }} />
+    <S.Screen name="AiAssistant" component={AiAssistantScreen} options={{ title: internal ? 'AI Assistant' : 'AI Farming Assistant' }} />
+    <S.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
+    <S.Screen name="Preferences" component={PreferencesScreen} options={{ title: 'Preferences' }} />
+    {internal && (
+      <>
+        <S.Screen name="CrmDashboard" component={CrmDashboardScreen} options={{ title: 'CRM' }} />
+        <S.Screen name="LeadList" component={LeadListScreen} options={{ title: 'Leads' }} />
+        <S.Screen name="LeadForm" component={LeadFormScreen} options={{ title: 'New Lead' }} />
+        <S.Screen name="LeadDetail" component={LeadDetailScreen} options={{ title: 'Lead' }} />
+        <S.Screen name="Pipeline" component={PipelineScreen} options={{ title: 'Pipeline' }} />
+        <S.Screen name="CrmReports" component={CrmReportsScreen} options={{ title: 'CRM Reports' }} />
+        <S.Screen name="ActivityFeed" component={ActivityFeedScreen} options={{ title: 'Activities' }} />
+        <S.Screen name="CustomerProfile" component={CustomerProfileScreen} options={{ title: 'Customer' }} />
+        <S.Screen name="QuotationBuilder" component={QuotationBuilderScreen} options={{ title: 'Quotation' }} />
+        <S.Screen name="TaskList" component={TaskListScreen} options={{ title: 'Tasks & Calendar' }} />
+        <S.Screen name="TaskForm" component={TaskFormScreen} options={{ title: 'Task' }} />
+        <S.Screen name="UserManagement" component={UserManagementScreen} options={{ title: 'User Management' }} />
+        <S.Screen name="UserForm" component={UserFormScreen} options={{ title: 'Team Member' }} />
+        <S.Screen name="ExpertCoverage" component={ExpertCoverageScreen} options={{ title: 'Experts & Coverage' }} />
+        <S.Screen name="AssignmentRules" component={AssignmentRulesScreen} options={{ title: 'Assignment Rules' }} />
+        <S.Screen name="QuotationSettings" component={QuotationSettingsScreen} options={{ title: 'Quotation Settings' }} />
+        <S.Screen name="RolePermissions" component={RolePermissionsScreen} options={{ title: 'Roles & Permissions' }} />
+        <S.Screen name="AiConfig" component={AiConfigScreen} options={{ title: 'AI Configuration' }} />
+        <S.Screen name="AuditLog" component={AuditLogScreen} options={{ title: 'Audit Logs' }} />
+        <S.Screen name="Announcements" component={AnnouncementsScreen} options={{ title: 'Announcements' }} />
+        <S.Screen name="AnnouncementComposer" component={AnnouncementComposerScreen} options={{ title: 'New Announcement' }} />
+        <S.Screen name="AdminOverview" component={AdminOverviewScreen} options={{ title: 'Platform Overview' }} />
+      </>
+    )}
+  </>
+);
 
 const FarmerTabs = () => (
   <Tab.Navigator 
@@ -154,7 +252,7 @@ const FarmerNavigator = ({ onLogout }: any) => {
         const isHomeTab = activeTab === 'Home';
         return {
           headerTitle: () => <HeaderTitle />,
-          headerLeft: isHomeTab ? undefined : () => (
+          headerLeft: isHomeTab ? () => <MenuButton /> : () => (
             <TouchableOpacity
               onPress={() => (navigation as any).navigate('FarmerTabs', { screen: 'Home' })}
               style={styles.circularBackBtn}
@@ -165,42 +263,45 @@ const FarmerNavigator = ({ onLogout }: any) => {
         };
       }}
     />
-    <FarmerStack.Screen 
-      name="FertilizerList" 
-      component={ProductListScreen} 
+    <FarmerStack.Screen
+      name="FertilizerList"
+      component={ProductListScreen}
       initialParams={{ role: 'customer' }}
-      options={{ title: 'Agri Store' }} 
+      options={{ headerShown: false }}
     />
     <FarmerStack.Screen name="ProductDetails" component={ProductDetailsScreen} options={{ title: 'Product Info' }} />
     <FarmerStack.Screen name="Cart" component={CartScreen} options={{ title: 'My Cart' }} />
     <FarmerStack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Confirm Order' }} />
-    <FarmerStack.Screen name="RainUpdates" component={RainUpdates} options={{ title: 'Weather Forecast' }} />
+    <FarmerStack.Screen name="RainUpdates" component={RainUpdates} options={{ headerShown: false }} />
     <FarmerStack.Screen name="Symptoms" component={SymptomsView} options={{ title: 'Crop Symptoms' }} />
-    <FarmerStack.Screen name="AddLand" component={AddLandScreen} options={{ title: 'Add New Land' }} />
+    <FarmerStack.Screen name="AddLand" component={AddLandScreen} options={{ headerShown: false }} />
     <FarmerStack.Screen name="PurchaseHistory" component={PurchaseHistory} options={{ title: 'Purchase History' }} />
     <FarmerStack.Screen name="Enquiry" component={EnquiryScreen} options={{ title: 'Book Enquiry' }} />
     
     {/* Crop Tracking & Expense Management */}
-    <FarmerStack.Screen name="CropTrackingHome" component={CropTrackingHomeScreen} options={{ title: 'My Farm Lands' }} />
-    <FarmerStack.Screen name="CropCycle" component={CropCycleScreen} options={{ title: 'Crop Activity' }} />
-    <FarmerStack.Screen name="CropTracking" component={CropTrackingScreen} options={{ title: 'Activity Timeline' }} />
-    <FarmerStack.Screen name="ActivityDetails" component={ActivityDetailsScreen} options={{ title: 'Activity Details' }} />
+    <FarmerStack.Screen name="CropTrackingHome" component={CropTrackingHomeScreen} options={{ headerShown: false }} />
+    <FarmerStack.Screen name="CropCycle" component={CropCycleScreen} options={{ headerShown: false }} />
+    <FarmerStack.Screen name="CropTracking" component={CropTrackingScreen} options={{ headerShown: false }} />
+    <FarmerStack.Screen name="ActivityDetails" component={ActivityDetailsScreen} options={{ headerShown: false }} />
     <FarmerStack.Screen name="AddDailyRecord" component={AddDailyRecordScreen} options={{ title: 'Add Entry' }} />
-    <FarmerStack.Screen name="AddExpenseEntry" component={AddExpenseEntryScreen} options={{ title: 'Add Activity Record' }} />
-    <FarmerStack.Screen name="ExpenseSummary" component={ExpenseSummaryScreen} options={{ title: 'Expense Analysis' }} />
-    <FarmerStack.Screen name="ExpenseBreakdown" component={ExpenseBreakdownScreen} options={{ title: 'Breakdown' }} />
-    <FarmerStack.Screen name="AddCropCycle" component={AddCropCycleScreen} options={{ title: 'New Cultivation' }} />
+    <FarmerStack.Screen name="AddExpenseEntry" component={AddExpenseEntryScreen} options={{ headerShown: false }} />
+    <FarmerStack.Screen name="ExpenseSummary" component={ExpenseSummaryScreen} options={{ headerShown: false }} />
+    <FarmerStack.Screen name="ExpenseBreakdown" component={ExpenseBreakdownScreen} options={{ headerShown: false }} />
+    <FarmerStack.Screen name="AddCropCycle" component={AddCropCycleScreen} options={{ headerShown: false }} />
     <FarmerStack.Screen name="ExpertAdvice" component={ExpertAdviceScreen} options={{ title: 'Expert Advice' }} />
     <FarmerStack.Screen name="Profile" component={ProfileScreen} options={{ title: 'My Profile' }} />
     <FarmerStack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
+    {sharedScreens(FarmerStack, false)}
   </FarmerStack.Navigator>
   );
 };
 
-const AdminNavigator = ({ onLogout, role }: any) => (
+const AdminNavigator = ({ onLogout, role }: any) => {
+  useUnreadNotifications(true);
+  return (
   <AdminStack.Navigator
     screenOptions={({ navigation }) => ({
-      ...getCommonOptions(onLogout, navigation),
+      ...getCommonOptions(onLogout, navigation, true),
       headerShown: true,
       headerLeft: ({ canGoBack }) => canGoBack ? (
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.circularBackBtn}>
@@ -217,7 +318,7 @@ const AdminNavigator = ({ onLogout, role }: any) => (
         const isDashboardTab = activeTab === 'Dashboard';
         return {
           headerTitle: () => <HeaderTitle />,
-          headerLeft: isDashboardTab ? undefined : () => (
+          headerLeft: isDashboardTab ? () => <MenuButton /> : () => (
             <TouchableOpacity
               onPress={() => (navigation as any).navigate('AdminTabs', { screen: 'Dashboard' })}
               style={styles.circularBackBtn}
@@ -237,21 +338,22 @@ const AdminNavigator = ({ onLogout, role }: any) => (
     <AdminStack.Screen name="AddAdmin" component={AddAdminScreen} options={{ title: 'Add Admin' }} />
     <AdminStack.Screen name="CustomerDetails" component={CustomerDetailsScreen} options={{ title: 'Profile' }} />
     <AdminStack.Screen name="ManagePrice" component={AdminActionPlaceholder} options={{ title: 'Update Price' }} />
-    <AdminStack.Screen name="UpdateRain" component={RainUpdates} options={{ title: 'Update Weather Data' }} />
+    <AdminStack.Screen name="UpdateRain" component={RainUpdates} options={{ headerShown: false }} />
     <AdminStack.Screen name="EnquiryList" component={EnquiryListScreen} options={{ title: 'User Enquiries' }} />
     <AdminStack.Screen name="EnquiryDetails" component={EnquiryDetailsScreen} options={{ title: 'Enquiry Details' }} />
     <AdminStack.Screen name="SymptomsList" component={SymptomsListScreen} options={{ title: 'Symptom Records' }} />
+    <AdminStack.Screen name="AlertsList" component={AlertsListScreen} options={{ title: 'Symptom Alerts' }} />
     <AdminStack.Screen name="AddSymptom" component={AddSymptomScreen} options={{ title: 'Add Record' }} />
     <AdminStack.Screen name="EditSymptom" component={EditSymptomScreen} options={{ title: 'Edit Record' }} />
     <AdminStack.Screen name="NotificationList" component={NotificationListScreen} options={{ title: 'Notifications' }} />
     <AdminStack.Screen name="SalesReport" component={SalesReportScreen} options={{ title: 'Sales Report' }} />
     <AdminStack.Screen name="AddNotification" component={AddNotificationScreen} options={{ title: 'New Alert' }} />
     <AdminStack.Screen name="EditNotification" component={EditNotificationScreen} options={{ title: 'Edit Alert' }} />
-    <AdminStack.Screen 
-      name="FertilizerList" 
-      component={ProductListScreen} 
+    <AdminStack.Screen
+      name="FertilizerList"
+      component={ProductListScreen}
       initialParams={{ role: (role || '').toLowerCase() }}
-      options={{ title: 'Inventory' }} 
+      options={{ headerShown: false }}
     />
     <AdminStack.Screen name="OrderList" component={AdminOrderListScreen} options={{ title: 'Customer Orders' }} />
     <AdminStack.Screen name="AddProduct" component={AddProductScreen} options={{ title: 'Add New Item' }} />
@@ -260,32 +362,78 @@ const AdminNavigator = ({ onLogout, role }: any) => (
     <AdminStack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Confirm Order' }} />
 
     {/* Crop Tracking & Expense Management (read-only for admin, except Give Advice) */}
-    <AdminStack.Screen name="CropCycle" component={CropCycleScreen} options={{ title: 'Crop Activity' }} />
-    <AdminStack.Screen name="CropTracking" component={CropTrackingScreen} options={{ title: 'Activity Timeline' }} />
-    <AdminStack.Screen name="ActivityDetails" component={ActivityDetailsScreen} options={{ title: 'Activity Details' }} />
-    <AdminStack.Screen name="AddExpenseEntry" component={AddExpenseEntryScreen} options={{ title: 'Add Activity Record' }} />
-    <AdminStack.Screen name="ExpenseSummary" component={ExpenseSummaryScreen} options={{ title: 'Expense Analysis' }} />
-    <AdminStack.Screen name="ExpenseBreakdown" component={ExpenseBreakdownScreen} options={{ title: 'Breakdown' }} />
-    <AdminStack.Screen name="AddCropCycle" component={AddCropCycleScreen} options={{ title: 'New Cultivation' }} />
+    <AdminStack.Screen name="CropCycle" component={CropCycleScreen} options={{ headerShown: false }} />
+    <AdminStack.Screen name="CropTracking" component={CropTrackingScreen} options={{ headerShown: false }} />
+    <AdminStack.Screen name="ActivityDetails" component={ActivityDetailsScreen} options={{ headerShown: false }} />
+    <AdminStack.Screen name="AddExpenseEntry" component={AddExpenseEntryScreen} options={{ headerShown: false }} />
+    <AdminStack.Screen name="ExpenseSummary" component={ExpenseSummaryScreen} options={{ headerShown: false }} />
+    <AdminStack.Screen name="ExpenseBreakdown" component={ExpenseBreakdownScreen} options={{ headerShown: false }} />
+    <AdminStack.Screen name="AddCropCycle" component={AddCropCycleScreen} options={{ headerShown: false }} />
     <AdminStack.Screen name="AddAdvice" component={AddAdviceScreen} options={{ title: 'Give Advice' }} />
     <AdminStack.Screen name="ExpertAdviceList" component={ExpertAdviceListScreen} options={{ title: 'Expert Advice Requests' }} />
     <AdminStack.Screen name="Profile" component={ProfileScreen} options={{ title: 'My Profile' }} />
+    <AdminStack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
+    {sharedScreens(AdminStack, true)}
   </AdminStack.Navigator>
-);
+  );
+};
+
+/** STAFF and EXPERT: work dashboard + CRM / consultation screens. */
+const WorkNavigator = ({ onLogout, role }: any) => {
+  useUnreadNotifications(true);
+  return (
+    <WorkStack.Navigator
+      screenOptions={({ navigation }) => ({
+        ...getCommonOptions(onLogout, navigation, true),
+        headerShown: true,
+        headerLeft: ({ canGoBack }) => canGoBack ? (
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.circularBackBtn}>
+            <ArrowLeft size={22} color="#1A1A1A" />
+          </TouchableOpacity>
+        ) : null,
+      })}
+    >
+      <WorkStack.Screen name="WorkHome" component={WorkDashboardScreen}
+                        options={{ headerTitle: () => <HeaderTitle />, headerLeft: () => <MenuButton /> }} />
+      <WorkStack.Screen name="FertilizerList" component={ProductListScreen} initialParams={{ role: 'viewer' }} options={{ headerShown: false }} />
+      <WorkStack.Screen name="ProductDetails" component={ProductDetailsScreen} options={{ title: 'Product Info' }} />
+      <WorkStack.Screen name="Profile" component={ProfileScreen} options={{ title: 'My Profile' }} />
+      <WorkStack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
+      {sharedScreens(WorkStack, true)}
+    </WorkStack.Navigator>
+  );
+};
 
 export const RootNavigator = ({ role, onLogout }: { role: UserRole, onLogout: () => void }) => {
+  const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const isWork = role === 'STAFF' || role === 'EXPERT';
+  const dispatch = useDispatch();
+
+  // Pick up permission changes made by a Super Admin since this session's login.
+  useEffect(() => {
+    profileApi.get()
+      .then(p => dispatch(updateUser({ permissions: p.permissions, name: p.name })))
+      .catch(() => {});
+  }, [dispatch]);
+
   return (
-    <MainStack.Navigator screenOptions={{ headerShown: Boolean(false) }}>
-      {role === 'ADMIN' || role === 'SUPER_ADMIN' ? (
-        <MainStack.Screen name="AdminRoot">
-             {props => <AdminNavigator {...props} onLogout={onLogout} role={role} />}
-        </MainStack.Screen>
-      ) : (
-        <MainStack.Screen name="FarmerRoot">
-             {props => <FarmerNavigator {...props} onLogout={onLogout} />}
-        </MainStack.Screen>
-      )}
-    </MainStack.Navigator>
+    <CustomDrawer renderContent={(close) => <AppDrawerContent onClose={close} />}>
+      <MainStack.Navigator screenOptions={{ headerShown: Boolean(false) }}>
+        {isAdmin ? (
+          <MainStack.Screen name="AdminRoot">
+               {props => <AdminNavigator {...props} onLogout={onLogout} role={role} />}
+          </MainStack.Screen>
+        ) : isWork ? (
+          <MainStack.Screen name="WorkRoot">
+               {props => <WorkNavigator {...props} onLogout={onLogout} role={role} />}
+          </MainStack.Screen>
+        ) : (
+          <MainStack.Screen name="FarmerRoot">
+               {props => <FarmerNavigator {...props} onLogout={onLogout} />}
+          </MainStack.Screen>
+        )}
+      </MainStack.Navigator>
+    </CustomDrawer>
   );
 };
 
@@ -307,6 +455,11 @@ const styles = StyleSheet.create({
   logoutButton: {
     padding: SPACING.sm,
   },
+  unreadBadge: {
+    position: 'absolute', top: 2, right: 0, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4,
+    backgroundColor: COLORS.error, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: COLORS.background,
+  },
+  unreadBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
   unreadDot: {
     position: 'absolute', top: 6, right: 6,
     width: 9, height: 9, borderRadius: 4.5,

@@ -7,3 +7,4 @@ env.local.json
 samconfig.local.toml
 .venv/
 venv/
+.pytest_cache/

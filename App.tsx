@@ -7,6 +7,8 @@ import { store, RootState, AppDispatch } from './src/store';
 import { logout } from './src/store/authSlice';
 import { AuthNavigator } from './src/navigation/AuthNavigator';
 import { RootNavigator } from './src/navigation/RootNavigator';
+import { navigationRef } from './src/navigation/navigationRef';
+import { ToastHost } from './src/ui';
 
 function AppContent() {
   const dispatch = useDispatch<AppDispatch>();
@@ -28,9 +30,10 @@ export default function App() {
   return (
     <Provider store={store}>
       <SafeAreaProvider>
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
           <AppContent />
         </NavigationContainer>
+        <ToastHost />
       </SafeAreaProvider>
     </Provider>
   );

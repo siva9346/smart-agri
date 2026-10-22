@@ -20,6 +20,7 @@ from boto3.dynamodb.conditions import Attr, Key
 
 from lib.db import table
 from lib.auth import sign_token, require_auth, require_super_admin, AuthError, ForbiddenError
+from lib.permissions import permissions_for
 from lib.response import (
     ok, created, bad_request, unauthorized, forbidden, not_found, conflict, server_err,
     parse_body, method, path_param, no_content,
@@ -94,6 +95,8 @@ def _login(event):
     stored_hash = user.get('passwordHash', '').encode()
     if not bcrypt.checkpw(password.encode(), stored_hash):
         return unauthorized('Invalid credentials')
+    if user.get('isActive') is False:
+        return forbidden('This account has been deactivated. Contact your administrator.')
 
     token = sign_token(user['userId'], user['role'])
     return ok({
@@ -361,7 +364,9 @@ def _change_password(event):
 
 
 def _safe_user(user: dict) -> dict:
-    return {k: v for k, v in user.items() if k not in ('passwordHash', 'resetOtpHash', 'resetOtpExpiresAt')}
+    safe = {k: v for k, v in user.items() if k not in ('passwordHash', 'resetOtpHash', 'resetOtpExpiresAt')}
+    safe['permissions'] = sorted(permissions_for(user.get('role', 'FARMER')))
+    return safe
 
 
 def _mask_email(email: str) -> str:

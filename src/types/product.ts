@@ -1,4 +1,5 @@
-export type UserRole = 'admin' | 'staff' | 'customer';
+// 'viewer' = staff/experts browsing the catalogue for quotations (read-only).
+export type UserRole = 'admin' | 'staff' | 'customer' | 'viewer';
 
 export interface Product {
   id: string;

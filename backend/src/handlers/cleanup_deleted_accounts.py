@@ -14,7 +14,11 @@ version of this policy):
     other customers), but customerId/address/notes are replaced with
     non-identifying placeholders so the order can no longer be linked back
     to the deleted user.
-  - Untouched: notifications (broadcast-only, never scoped to one user) and
+  - Hard-deleted: their expert consultations (with crop photos) and their
+    per-user notification inbox records.
+  - Anonymized: CRM leads and quotations linked to them (name/phone/email/location
+    replaced) so sales reporting stays accurate without identifying them.
+  - Untouched: announcement records (the broadcast itself, not per-user state) and
     the products/symptoms reference catalogues (not user-owned data).
 """
 import os
@@ -83,7 +87,47 @@ def _purge_user(user_id: str):
     _anonymize_orders(user_id)
     _delete_by_farmer_index('advice', 'adviceId', user_id)
     _delete_by_farmer_index('enquiries', 'enquiryId', user_id)
+    _purge_consultations(user_id)
+    _purge_inbox(user_id)
+    _anonymize_crm(user_id)
     table('users').delete_item(Key={'userId': user_id})
+
+
+def _purge_consultations(customer_id: str):
+    tbl = table('consultations')
+    for c in _query_all(tbl, IndexName='CustomerIndex', KeyConditionExpression=Key('customerId').eq(customer_id)):
+        for key in c.get('photoKeys', []):
+            try:
+                _s3.delete_object(Bucket=PHOTOS_BUCKET, Key=key)
+            except Exception:
+                pass
+        tbl.delete_item(Key={'consultationId': c['consultationId']})
+
+
+def _purge_inbox(user_id: str):
+    tbl = table('inbox')
+    with tbl.batch_writer() as batch:
+        for i in _query_all(tbl, KeyConditionExpression=Key('userId').eq(user_id), ProjectionExpression='recipientKey'):
+            batch.delete_item(Key={'userId': user_id, 'recipientKey': i['recipientKey']})
+
+
+def _anonymize_crm(customer_id: str):
+    leads = table('leads')
+    for lead in _query_all(leads, IndexName='CustomerIndex', KeyConditionExpression=Key('customerId').eq(customer_id)):
+        leads.update_item(
+            Key={'leadId': lead['leadId']},
+            UpdateExpression='SET customerId = :cid, customerName = :d, phone = :d, #loc = :d, searchText = :e '
+                             'REMOVE email, consultationId',
+            ExpressionAttributeNames={'#loc': 'location'},
+            ExpressionAttributeValues={':cid': ANONYMOUS_ID, ':d': '[deleted]', ':e': ''},
+        )
+    quotes = table('quotations')
+    for q in _query_all(quotes, IndexName='CustomerIndex', KeyConditionExpression=Key('customerId').eq(customer_id)):
+        quotes.update_item(
+            Key={'quotationId': q['quotationId']},
+            UpdateExpression='SET customerId = :cid, customerName = :d, customerPhone = :d, customerLocation = :d',
+            ExpressionAttributeValues={':cid': ANONYMOUS_ID, ':d': '[deleted]'},
+        )
 
 
 def _purge_lands_and_descendants(farmer_id: str):

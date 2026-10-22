@@ -6,10 +6,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
-import { Card } from '../../components/Card';
+import { GlassCard } from '../../components/GlassCard';
+import { GradientHero } from '../../components/GradientHero';
 import {
   Sprout, Banknote, Activity, TrendingUp,
-  ArrowLeft, Plus, TrendingDown, CheckCircle, Clock, Lightbulb,
+  Plus, TrendingDown, CheckCircle, Clock, Lightbulb,
+  Stethoscope,
 } from 'lucide-react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../../store';
@@ -23,7 +25,6 @@ const adaptCycle = (c: any) => ({
   startDate: c.startDate,
   endDate:   c.endDate || undefined,
   area:      c.area || undefined,
-  cropAge:   0,
   status:    (c.status === 'COMPLETED' ? 'completed' : 'active') as 'active' | 'completed' | 'current',
 });
 
@@ -154,7 +155,7 @@ export const CropCycleScreen = ({ route, navigation }: any) => {
     const age = isActive ? getCropAge(cycle.startDate) : null;
 
     return (
-      <Card key={cycle.id} style={styles.card}>
+      <GlassCard key={cycle.id} style={styles.card}>
         {/* Header row */}
         <View style={styles.cardHeader}>
           <View style={styles.cropIconContainer}>
@@ -225,6 +226,16 @@ export const CropCycleScreen = ({ route, navigation }: any) => {
             <Text style={styles.trackBtnText}>View Timeline</Text>
           </TouchableOpacity>
           {isActive && !readOnly && (
+            <TouchableOpacity
+              style={styles.summaryBtn}
+              onPress={() => navigation.navigate('ConsultationRequest', { cycleId: cycle.id, cropName: cycle.cropName, landId })}
+              accessibilityLabel={`Ask an expert about ${cycle.cropName}`}
+            >
+              <Stethoscope size={13} color={COLORS.primary} />
+              <Text style={styles.summaryBtnText}>Ask an Expert</Text>
+            </TouchableOpacity>
+          )}
+          {isActive && !readOnly && (
             <TouchableOpacity style={styles.completeBtn} onPress={() => handleCompleteCycle(cycle.id)}>
               <CheckCircle size={13} color={COLORS.surface} />
               <Text style={styles.completeBtnText}>Complete Cycle</Text>
@@ -249,22 +260,14 @@ export const CropCycleScreen = ({ route, navigation }: any) => {
             </TouchableOpacity>
           )}
         </View>
-      </Card>
+      </GlassCard>
     );
   };
 
   if (dataLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.screenHeader}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <ArrowLeft size={22} color={COLORS.text} />
-          </TouchableOpacity>
-          <View style={styles.headerText}>
-            <Text style={styles.headerTitle}>{landName}</Text>
-            <Text style={styles.headerSub}>Cultivation Cycles</Text>
-          </View>
-        </View>
+        <GradientHero title={landName} subtitle="Cultivation Cycles" onBack={() => navigation.goBack()} compact />
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
@@ -274,25 +277,21 @@ export const CropCycleScreen = ({ route, navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.screenHeader}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <ArrowLeft size={22} color={COLORS.text} />
-        </TouchableOpacity>
-        <View style={styles.headerText}>
-          <Text style={styles.headerTitle}>{landName}</Text>
-          <Text style={styles.headerSub}>Cultivation Cycles</Text>
-        </View>
-        {!readOnly && (
+      <GradientHero
+        title={landName}
+        subtitle="Cultivation Cycles"
+        onBack={() => navigation.goBack()}
+        compact
+        right={!readOnly ? (
           <TouchableOpacity
             style={styles.newCycleBtn}
             onPress={() => navigation.navigate('AddCropCycle', { landId, landName })}
           >
-            <Plus size={18} color="#FFF" />
+            <Plus size={16} color="#FFF" />
             <Text style={styles.newCycleBtnText}>New</Text>
           </TouchableOpacity>
-        )}
-      </View>
+        ) : undefined}
+      />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {activeCycles.length > 0 && (
@@ -321,7 +320,7 @@ export const CropCycleScreen = ({ route, navigation }: any) => {
         {cropCycles.length > 0 && (
           <View style={styles.summaryCard}>
             <View style={styles.summaryHeader}>
-              <TrendingUp size={18} color={COLORS.surface} />
+              <TrendingUp size={18} color={COLORS.primary} />
               <Text style={styles.summaryTitle}>Land Summary</Text>
             </View>
             <View style={styles.summaryRow}>
@@ -339,9 +338,9 @@ export const CropCycleScreen = ({ route, navigation }: any) => {
               <Text style={styles.netPLLabel}>NET PROFIT / LOSS</Text>
               <View style={styles.netPLRow}>
                 {landNetPL >= 0
-                  ? <TrendingUp size={22} color={landNetPL > 0 ? '#A5D6A7' : '#FFF'} />
-                  : <TrendingDown size={22} color="#FF5252" />}
-                <Text style={[styles.netPLAmount, { color: landNetPL >= 0 ? '#A5D6A7' : '#FF5252' }]}>
+                  ? <TrendingUp size={20} color={COLORS.success} />
+                  : <TrendingDown size={20} color={COLORS.error} />}
+                <Text style={[styles.netPLAmount, { color: landNetPL >= 0 ? COLORS.success : COLORS.error }]}>
                   {landNetPL >= 0 ? '+' : ''}₹{Math.abs(landNetPL).toLocaleString()}
                 </Text>
               </View>
@@ -417,28 +416,12 @@ export const LandDetailsScreen = CropCycleScreen;
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  screenHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 14,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1, borderBottomColor: '#E8EDF2',
-    elevation: 2, shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3,
-  },
-  backBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: '#F5F5F5',
-    justifyContent: 'center', alignItems: 'center', marginRight: 12,
-  },
-  headerText: { flex: 1 },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A1A' },
-  headerSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
+  container: { flex: 1, backgroundColor: '#F2F7F3' },
   newCycleBtn: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: 20, gap: 4,
+    borderRadius: 20, gap: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
   },
   newCycleBtnText: { color: '#FFF', fontSize: 13, fontWeight: 'bold' },
   scroll: { flex: 1 },
@@ -490,7 +473,7 @@ const styles = StyleSheet.create({
   plRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   plText: { fontSize: 13, fontWeight: 'bold' },
   // Actions
-  cardActions: { flexDirection: 'row', gap: SPACING.sm },
+  cardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   trackBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center',
     justifyContent: 'center', backgroundColor: COLORS.primary,
@@ -522,34 +505,33 @@ const styles = StyleSheet.create({
   emptyHint: { fontSize: 13, color: '#CCC', marginTop: 4, textAlign: 'center' },
   // Land summary card
   summaryCard: {
-    backgroundColor: COLORS.primary,
-    borderRadius: BORDER_RADIUS.lg,
+    borderRadius: BORDER_RADIUS.lg, backgroundColor: COLORS.surface,
+    borderWidth: 1, borderColor: COLORS.primary + '20',
     padding: SPACING.lg, marginTop: SPACING.md,
-    elevation: 4, shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.09, shadowRadius: 10, elevation: 4,
   },
   summaryHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.lg },
-  summaryTitle: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginLeft: SPACING.sm },
+  summaryTitle: { color: COLORS.text, fontSize: 15, fontWeight: '700', marginLeft: SPACING.sm },
   summaryRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.lg },
   summaryItem: { flex: 1, alignItems: 'center' },
-  summarySeparator: { width: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.3)' },
+  summarySeparator: { width: 1, height: 40, backgroundColor: COLORS.border },
   summaryItemLabel: {
-    color: 'rgba(255,255,255,0.7)', fontSize: 11,
+    color: COLORS.textSecondary, fontSize: 11,
     textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4,
   },
-  summaryExpense: { color: '#FFCDD2', fontSize: 18, fontWeight: 'bold' },
-  summaryIncome: { color: '#C8E6C9', fontSize: 18, fontWeight: 'bold' },
+  summaryExpense: { color: COLORS.error, fontSize: 18, fontWeight: '700' },
+  summaryIncome: { color: COLORS.success, fontSize: 18, fontWeight: '700' },
   netPLContainer: {
     alignItems: 'center',
-    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)',
+    borderTopWidth: 1, borderTopColor: COLORS.border,
     paddingTop: SPACING.md,
   },
   netPLLabel: {
-    color: 'rgba(255,255,255,0.7)', fontSize: 11,
+    color: COLORS.textSecondary, fontSize: 11,
     textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6,
   },
   netPLRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  netPLAmount: { fontSize: 28, fontWeight: 'bold' },
+  netPLAmount: { fontSize: 26, fontWeight: '700' },
   // Modal
   modalOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end',

@@ -1,0 +1,6 @@
+moto[dynamodb,ssm,s3]>=5
+pytest>=8
+PyYAML>=6
+boto3
+PyJWT==2.8.0
+bcrypt==4.1.3

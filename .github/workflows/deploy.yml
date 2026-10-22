@@ -39,6 +39,13 @@ jobs:
         with:
           python-version: '3.12'
 
+      # ── 3b. Backend tests (moto-mocked AWS) — a failure stops the deploy ────
+      - name: Run backend tests
+        working-directory: backend
+        run: |
+          pip install -q -r tests/requirements.txt
+          python -m pytest -q tests
+
       # ── 4. Set up SAM CLI ───────────────────────────────────────────────────
       - name: Set up SAM CLI
         uses: aws-actions/setup-sam@v2

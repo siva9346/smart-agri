@@ -39,6 +39,7 @@ export const LoginScreen = ({ navigation }: any) => {
           name:   res.user.name,
           role:   res.user.role,
           phone:  res.user.phone,
+          permissions: res.user.permissions ?? [],
         },
       }));
     } catch (err: any) {

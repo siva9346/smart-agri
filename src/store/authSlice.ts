@@ -7,6 +7,8 @@ export interface AuthUser {
   name: string;
   role: UserRole;
   phone: string;
+  /** Effective permissions from the backend — used only to shape the UI. */
+  permissions?: string[];
 }
 
 interface AuthState {
@@ -23,6 +25,9 @@ const authSlice = createSlice({
       state.user = action.payload.user;
       setAuthToken(action.payload.token);
     },
+    updateUser(state, action: PayloadAction<Partial<AuthUser>>) {
+      if (state.user) state.user = { ...state.user, ...action.payload };
+    },
     logout(state) {
       state.user = null;
       setAuthToken(null);
@@ -30,5 +35,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { loginSuccess, logout } = authSlice.actions;
+export const { loginSuccess, updateUser, logout } = authSlice.actions;
 export default authSlice.reducer;

@@ -23,6 +23,16 @@ Globals:
         NOTIFICATIONS_TABLE: !Ref NotificationsTable
         ENQUIRIES_TABLE: !Ref EnquiriesTable
         SYMPTOMS_TABLE: !Ref SymptomsTable
+        CONSULTATIONS_TABLE: !Ref ConsultationsTable
+        LEADS_TABLE: !Ref LeadsTable
+        LEAD_ACTIVITIES_TABLE: !Ref LeadActivitiesTable
+        QUOTATIONS_TABLE: !Ref QuotationsTable
+        TASKS_TABLE: !Ref TasksTable
+        INBOX_TABLE: !Ref InboxTable
+        SETTINGS_TABLE: !Ref SettingsTable
+        AUDIT_TABLE: !Ref AuditTable
+        PHOTOS_BUCKET: !Ref RecordPhotosBucket
+        AI_KEY_PARAM_PREFIX: /naveena/ai/
   HttpApi:
     CorsConfiguration:
       AllowOrigins: ['*']
@@ -72,6 +82,8 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref UsersTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref SettingsTable
         - LambdaInvokePolicy:
             FunctionName: !Ref EmailFunction
       Events:
@@ -211,10 +223,14 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: handlers.notifications.handler
-      Description: Admin push notifications / alerts
+      Description: Announcements + per-user notification inbox (read/dismiss state); fans out asynchronously
+      Timeout: 120      # async fan-out runs can take longer; API calls are still capped by API Gateway's 30s
       Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref NotificationsTable
+        - !Ref CoreDataPolicy
+        - Statement:
+            - Effect: Allow
+              Action: lambda:InvokeFunction   # async self-invocation for audience fan-out
+              Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-NotificationsFunction-*'
       Events:
         Root: { Type: HttpApi, Properties: { Path: /notifications,          Method: ANY, ApiId: !Ref Api } }
         Sub:  { Type: HttpApi, Properties: { Path: "/notifications/{proxy+}",  Method: ANY, ApiId: !Ref Api } }
@@ -244,6 +260,182 @@ Resources:
       Events:
         Root: { Type: HttpApi, Properties: { Path: /symptoms,          Method: ANY, ApiId: !Ref Api } }
         Sub:  { Type: HttpApi, Properties: { Path: "/symptoms/{proxy+}",  Method: ANY, ApiId: !Ref Api } }
+
+  # ── Shared data-access policy for the CRM / consultation / AI functions ──────
+  CoreDataPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Read/write on the CRM, consultation, notification and settings tables; read-only on catalogue and farm data
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+              - dynamodb:DeleteItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:BatchWriteItem
+              - dynamodb:BatchGetItem
+              - dynamodb:ConditionCheckItem
+              - dynamodb:DescribeTable
+            Resource:
+              - !GetAtt UsersTable.Arn
+              - !Sub '${UsersTable.Arn}/index/*'
+              - !GetAtt ConsultationsTable.Arn
+              - !Sub '${ConsultationsTable.Arn}/index/*'
+              - !GetAtt LeadsTable.Arn
+              - !Sub '${LeadsTable.Arn}/index/*'
+              - !GetAtt LeadActivitiesTable.Arn
+              - !Sub '${LeadActivitiesTable.Arn}/index/*'
+              - !GetAtt QuotationsTable.Arn
+              - !Sub '${QuotationsTable.Arn}/index/*'
+              - !GetAtt TasksTable.Arn
+              - !Sub '${TasksTable.Arn}/index/*'
+              - !GetAtt InboxTable.Arn
+              - !Sub '${InboxTable.Arn}/index/*'
+              - !GetAtt SettingsTable.Arn
+              - !GetAtt AuditTable.Arn
+              - !Sub '${AuditTable.Arn}/index/*'
+              - !GetAtt NotificationsTable.Arn
+          - Effect: Allow
+            Action: [dynamodb:GetItem, dynamodb:Query, dynamodb:Scan]
+            Resource:
+              - !GetAtt ProductsTable.Arn
+              - !GetAtt LandsTable.Arn
+              - !Sub '${LandsTable.Arn}/index/*'
+              - !GetAtt CropCyclesTable.Arn
+              - !Sub '${CropCyclesTable.Arn}/index/*'
+
+  # ── Expert consultations ("Get Suggestions from Experts") ────────────────────
+  ConsultationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.consultations.handler
+      Description: Consultation requests, automatic expert assignment, linked CRM lead creation
+      Policies:
+        - !Ref CoreDataPolicy
+        - Statement:
+            - Effect: Allow
+              Action: [s3:PutObject, s3:GetObject]   # GetObject signs the short-lived photo URLs
+              Resource: !Sub '${RecordPhotosBucket.Arn}/consultations/*'
+      Events:
+        Root: { Type: HttpApi, Properties: { Path: /consultations,           Method: ANY, ApiId: !Ref Api } }
+        Sub:  { Type: HttpApi, Properties: { Path: "/consultations/{proxy+}", Method: ANY, ApiId: !Ref Api } }
+
+  # ── CRM ───────────────────────────────────────────────────────────────────────
+  CrmFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.crm.handler
+      Description: Shared CRM – leads, pipeline, activities, calls, WhatsApp click-to-chat, dashboards
+      Policies:
+        - !Ref CoreDataPolicy
+      Events:
+        Sub: { Type: HttpApi, Properties: { Path: "/crm/{proxy+}", Method: ANY, ApiId: !Ref Api } }
+
+  # ── Quotations ────────────────────────────────────────────────────────────────
+  QuotationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.quotations.handler
+      Description: Product quotations – backend pricing, approval, sharing, customer response
+      Policies:
+        - !Ref CoreDataPolicy
+      Events:
+        Root: { Type: HttpApi, Properties: { Path: /quotations,           Method: ANY, ApiId: !Ref Api } }
+        Sub:  { Type: HttpApi, Properties: { Path: "/quotations/{proxy+}", Method: ANY, ApiId: !Ref Api } }
+
+  # ── Follow-ups, appointments, tasks ──────────────────────────────────────────
+  TasksFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.tasks.handler
+      Description: Follow-ups, appointments and tasks
+      Policies:
+        - !Ref CoreDataPolicy
+      Events:
+        Root: { Type: HttpApi, Properties: { Path: /tasks,           Method: ANY, ApiId: !Ref Api } }
+        Sub:  { Type: HttpApi, Properties: { Path: "/tasks/{proxy+}", Method: ANY, ApiId: !Ref Api } }
+
+  # ── Team users (staff / experts / admins) ────────────────────────────────────
+  UsersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.users.handler
+      Description: Staff, expert and admin account management
+      Policies:
+        - !Ref CoreDataPolicy
+      Events:
+        Root: { Type: HttpApi, Properties: { Path: /users,           Method: ANY, ApiId: !Ref Api } }
+        Sub:  { Type: HttpApi, Properties: { Path: "/users/{proxy+}", Method: ANY, ApiId: !Ref Api } }
+
+  # ── Personal profile & preferences ───────────────────────────────────────────
+  ProfileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.profile.handler
+      Description: Own profile, preferences and profile photo
+      Policies:
+        - !Ref CoreDataPolicy
+        - Statement:
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub '${RecordPhotosBucket.Arn}/profiles/*'
+      Events:
+        Root: { Type: HttpApi, Properties: { Path: /profile,           Method: ANY, ApiId: !Ref Api } }
+        Sub:  { Type: HttpApi, Properties: { Path: "/profile/{proxy+}", Method: ANY, ApiId: !Ref Api } }
+
+  # ── AI (OpenAI / Gemini) ─────────────────────────────────────────────────────
+  AiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.ai.handler
+      Description: AI configuration (Super Admin) and role-scoped AI assistance
+      Policies:
+        - !Ref CoreDataPolicy
+        - Statement:
+            - Effect: Allow
+              Action: [ssm:GetParameter, ssm:PutParameter, ssm:DeleteParameter]
+              Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/naveena/ai/*'
+            - Effect: Allow   # SecureString with the AWS-managed aws/ssm key, only via SSM
+              Action: [kms:Encrypt, kms:Decrypt]
+              Resource: '*'
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub 'ssm.${AWS::Region}.amazonaws.com'
+      Events:
+        Sub: { Type: HttpApi, Properties: { Path: "/ai/{proxy+}", Method: ANY, ApiId: !Ref Api } }
+
+  # ── Administration settings, audit log, role dashboards ──────────────────────
+  AdminFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.admin.handler
+      Description: Platform settings, permissions, audit logs and role dashboards
+      Policies:
+        - !Ref CoreDataPolicy
+      Events:
+        Sub:       { Type: HttpApi, Properties: { Path: "/admin/{proxy+}", Method: ANY, ApiId: !Ref Api } }
+        Dashboard: { Type: HttpApi, Properties: { Path: /dashboard,        Method: ANY, ApiId: !Ref Api } }
+
+  # ── Reminders, consultation escalation, quotation expiry ─────────────────────
+  SchedulerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.scheduler.handler
+      Description: Every 15 min – task reminders, overdue consultation escalation, quotation expiry
+      Timeout: 120
+      Policies:
+        - !Ref CoreDataPolicy
+      Events:
+        Every15Min:
+          Type: Schedule
+          Properties:
+            Schedule: rate(15 minutes)
+            Enabled: true
 
   # ── Account Deletion (Google Play compliance) ────────────────────────────────
   AccountDeleteFunction:
@@ -281,6 +473,7 @@ Resources:
             TableName: !Ref AdviceTable
         - DynamoDBCrudPolicy:
             TableName: !Ref EnquiriesTable
+        - !Ref CoreDataPolicy
         - Statement:
             - Effect: Allow
               Action: s3:DeleteObject
@@ -299,6 +492,7 @@ Resources:
   RecordPhotosBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       BucketName: !Sub 'naveena-record-photos-${AWS::AccountId}'
       PublicAccessBlockConfiguration:
@@ -319,11 +513,16 @@ Resources:
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
+          # Only these prefixes are public. consultations/ (customer crop photos)
+          # stays private and is served through short-lived presigned URLs.
           - Sid: PublicReadRecordPhotos
             Effect: Allow
             Principal: '*'
             Action: s3:GetObject
-            Resource: !Sub '${RecordPhotosBucket.Arn}/*'
+            Resource:
+              - !Sub '${RecordPhotosBucket.Arn}/records/*'
+              - !Sub '${RecordPhotosBucket.Arn}/products/*'
+              - !Sub '${RecordPhotosBucket.Arn}/profiles/*'
 
   # ─────────────────────────────────────────────────────────────────────────────
   # DYNAMODB TABLES  (PAY_PER_REQUEST = on-demand, auto-scales to any load)
@@ -333,12 +532,14 @@ Resources:
   UsersTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: naveena-users
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - { AttributeName: userId, AttributeType: S }
         - { AttributeName: phone,  AttributeType: S }
+        - { AttributeName: role,   AttributeType: S }
       KeySchema:
         - { AttributeName: userId, KeyType: HASH }
       GlobalSecondaryIndexes:
@@ -346,10 +547,15 @@ Resources:
           KeySchema:
             - { AttributeName: phone, KeyType: HASH }
           Projection: { ProjectionType: ALL }
+        - IndexName: RoleIndex      # experts/staff lookups, audience fan-out, role counts
+          KeySchema:
+            - { AttributeName: role, KeyType: HASH }
+          Projection: { ProjectionType: ALL }
 
   LandsTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: naveena-lands
       BillingMode: PAY_PER_REQUEST
@@ -367,6 +573,7 @@ Resources:
   CropCyclesTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: naveena-crop-cycles
       BillingMode: PAY_PER_REQUEST
@@ -385,6 +592,7 @@ Resources:
   DailyRecordsTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: naveena-daily-records
       BillingMode: PAY_PER_REQUEST
@@ -404,6 +612,7 @@ Resources:
   ProductsTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: naveena-products
       BillingMode: PAY_PER_REQUEST
@@ -415,6 +624,7 @@ Resources:
   OrdersTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: naveena-orders
       BillingMode: PAY_PER_REQUEST
@@ -434,6 +644,7 @@ Resources:
   AdviceTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: naveena-advice
       BillingMode: PAY_PER_REQUEST
@@ -453,6 +664,7 @@ Resources:
   NotificationsTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: naveena-notifications
       BillingMode: PAY_PER_REQUEST
@@ -464,6 +676,7 @@ Resources:
   EnquiriesTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: naveena-enquiries
       BillingMode: PAY_PER_REQUEST
@@ -483,6 +696,7 @@ Resources:
   SymptomsTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: naveena-symptoms
       BillingMode: PAY_PER_REQUEST
@@ -490,6 +704,244 @@ Resources:
         - { AttributeName: symptomId, AttributeType: S }
       KeySchema:
         - { AttributeName: symptomId, KeyType: HASH }
+
+  # ── CRM / consultation / notification / settings tables ─────────────────────
+  ConsultationsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: naveena-consultations
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: consultationId, AttributeType: S }
+        - { AttributeName: customerId, AttributeType: S }
+        - { AttributeName: expertId, AttributeType: S }
+        - { AttributeName: status, AttributeType: S }
+        - { AttributeName: createdAt, AttributeType: S }
+      KeySchema:
+        - { AttributeName: consultationId, KeyType: HASH }
+      GlobalSecondaryIndexes:
+        - IndexName: CustomerIndex
+          KeySchema:
+            - { AttributeName: customerId, KeyType: HASH }
+            - { AttributeName: createdAt, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: ExpertIndex
+          KeySchema:
+            - { AttributeName: expertId, KeyType: HASH }
+            - { AttributeName: createdAt, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: StatusIndex
+          KeySchema:
+            - { AttributeName: status, KeyType: HASH }
+            - { AttributeName: createdAt, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+      PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true }
+
+  LeadsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: naveena-leads
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: leadId, AttributeType: S }
+        - { AttributeName: ownerId, AttributeType: S }
+        - { AttributeName: expertId, AttributeType: S }
+        - { AttributeName: phone, AttributeType: S }
+        - { AttributeName: stage, AttributeType: S }
+        - { AttributeName: customerId, AttributeType: S }
+        - { AttributeName: createdAt, AttributeType: S }
+      KeySchema:
+        - { AttributeName: leadId, KeyType: HASH }
+      GlobalSecondaryIndexes:
+        - IndexName: OwnerIndex
+          KeySchema:
+            - { AttributeName: ownerId, KeyType: HASH }
+            - { AttributeName: createdAt, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: ExpertIndex
+          KeySchema:
+            - { AttributeName: expertId, KeyType: HASH }
+            - { AttributeName: createdAt, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: PhoneIndex
+          KeySchema:
+            - { AttributeName: phone, KeyType: HASH }
+          Projection: { ProjectionType: ALL }
+        - IndexName: StageIndex
+          KeySchema:
+            - { AttributeName: stage, KeyType: HASH }
+            - { AttributeName: createdAt, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: CustomerIndex
+          KeySchema:
+            - { AttributeName: customerId, KeyType: HASH }
+            - { AttributeName: createdAt, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+      PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true }
+
+  LeadActivitiesTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: naveena-lead-activities
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: leadId, AttributeType: S }
+        - { AttributeName: sortKey, AttributeType: S }
+        - { AttributeName: actorId, AttributeType: S }
+        - { AttributeName: feed, AttributeType: S }
+      KeySchema:
+        - { AttributeName: leadId, KeyType: HASH }
+        - { AttributeName: sortKey, KeyType: RANGE }
+      GlobalSecondaryIndexes:
+        - IndexName: ActorIndex
+          KeySchema:
+            - { AttributeName: actorId, KeyType: HASH }
+            - { AttributeName: sortKey, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: FeedIndex
+          KeySchema:
+            - { AttributeName: feed, KeyType: HASH }
+            - { AttributeName: sortKey, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+
+  QuotationsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: naveena-quotations
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: quotationId, AttributeType: S }
+        - { AttributeName: leadId, AttributeType: S }
+        - { AttributeName: customerId, AttributeType: S }
+        - { AttributeName: status, AttributeType: S }
+        - { AttributeName: createdBy, AttributeType: S }
+        - { AttributeName: createdAt, AttributeType: S }
+      KeySchema:
+        - { AttributeName: quotationId, KeyType: HASH }
+      GlobalSecondaryIndexes:
+        - IndexName: LeadIndex
+          KeySchema:
+            - { AttributeName: leadId, KeyType: HASH }
+            - { AttributeName: createdAt, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: CustomerIndex
+          KeySchema:
+            - { AttributeName: customerId, KeyType: HASH }
+            - { AttributeName: createdAt, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: StatusIndex
+          KeySchema:
+            - { AttributeName: status, KeyType: HASH }
+            - { AttributeName: createdAt, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: CreatorIndex
+          KeySchema:
+            - { AttributeName: createdBy, KeyType: HASH }
+            - { AttributeName: createdAt, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+      PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true }
+
+  TasksTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: naveena-tasks
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: taskId, AttributeType: S }
+        - { AttributeName: assigneeId, AttributeType: S }
+        - { AttributeName: leadId, AttributeType: S }
+        - { AttributeName: customerId, AttributeType: S }
+        - { AttributeName: dueAt, AttributeType: S }
+        - { AttributeName: reminderPending, AttributeType: S }
+        - { AttributeName: reminderAt, AttributeType: S }
+      KeySchema:
+        - { AttributeName: taskId, KeyType: HASH }
+      GlobalSecondaryIndexes:
+        - IndexName: AssigneeIndex
+          KeySchema:
+            - { AttributeName: assigneeId, KeyType: HASH }
+            - { AttributeName: dueAt, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: LeadIndex
+          KeySchema:
+            - { AttributeName: leadId, KeyType: HASH }
+            - { AttributeName: dueAt, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: CustomerIndex
+          KeySchema:
+            - { AttributeName: customerId, KeyType: HASH }
+            - { AttributeName: dueAt, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: ReminderIndex
+          KeySchema:
+            - { AttributeName: reminderPending, KeyType: HASH }
+            - { AttributeName: reminderAt, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+
+  InboxTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: naveena-notification-inbox
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: userId, AttributeType: S }
+        - { AttributeName: recipientKey, AttributeType: S }
+        - { AttributeName: notifId, AttributeType: S }
+      KeySchema:
+        - { AttributeName: userId, KeyType: HASH }
+        - { AttributeName: recipientKey, KeyType: RANGE }
+      GlobalSecondaryIndexes:
+        - IndexName: NotifIndex
+          KeySchema:
+            - { AttributeName: notifId, KeyType: HASH }
+          Projection: { ProjectionType: ALL }
+      TimeToLiveSpecification: { AttributeName: purgeAt, Enabled: true }   # notification history retention
+
+  SettingsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: naveena-settings
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: settingKey, AttributeType: S }
+      KeySchema:
+        - { AttributeName: settingKey, KeyType: HASH }
+      TimeToLiveSpecification: { AttributeName: expiresAtEpoch, Enabled: true }   # rate-limit counters
+
+  AuditTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: naveena-audit-log
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: auditDay, AttributeType: S }
+        - { AttributeName: sortKey, AttributeType: S }
+        - { AttributeName: entityId, AttributeType: S }
+      KeySchema:
+        - { AttributeName: auditDay, KeyType: HASH }
+        - { AttributeName: sortKey, KeyType: RANGE }
+      GlobalSecondaryIndexes:
+        - IndexName: EntityIndex
+          KeySchema:
+            - { AttributeName: entityId, KeyType: HASH }
+            - { AttributeName: sortKey, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
 
 # ─── Outputs ─────────────────────────────────────────────────────────────────
 Outputs:
