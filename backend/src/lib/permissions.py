@@ -50,6 +50,7 @@ DEFAULT_PERMISSIONS = {
     'settings.quotation':     {SUPER_ADMIN},
     'settings.permissions':   {SUPER_ADMIN},
     'ai.configure':           {SUPER_ADMIN},
+    'integrations.configure': {SUPER_ADMIN},
     'ai.use':                 {SUPER_ADMIN, ADMIN, STAFF, EXPERT, FARMER},
     'audit.view':             {SUPER_ADMIN},
     'profile.edit':           {SUPER_ADMIN, ADMIN, STAFF, EXPERT, FARMER},

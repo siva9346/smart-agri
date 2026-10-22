@@ -311,9 +311,9 @@ def _share(event, qid):
         raise HttpError(409, 'Only approved quotations can be shared' if q['status'] != 'EXPIRED' else 'This quotation has expired')
     lead = get_lead(q['leadId'])
     channel = (parse_body(event).get('channel') or 'WHATSAPP').upper()
-    if channel not in ('WHATSAPP', 'IN_APP'):
-        raise HttpError(400, 'channel must be WHATSAPP or IN_APP')
-    if channel == 'WHATSAPP' and lead.get('whatsappOptOut'):
+    if channel not in ('WHATSAPP', 'WHATSAPP_API', 'IN_APP'):
+        raise HttpError(400, 'channel must be WHATSAPP, WHATSAPP_API or IN_APP')
+    if channel.startswith('WHATSAPP') and lead.get('whatsappOptOut'):
         raise HttpError(409, 'The customer has opted out of WhatsApp messages')
     if channel == 'IN_APP' and not q.get('customerId'):
         raise HttpError(409, 'This customer has no app account — share via WhatsApp instead')
@@ -321,6 +321,16 @@ def _share(event, qid):
     text = share_message(q)
     share = {'channel': channel, 'by': actor['userId'], 'at': now_iso(),
              'deliveryStatus': 'NOT_TRACKED' if channel == 'WHATSAPP' else 'IN_APP_CREATED'}
+    wa_result = None
+    if channel == 'WHATSAPP_API':
+        from lib import whatsapp as wa
+        products = ', '.join(f"{i['name']} × {_fmt_qty(i['quantity'])}" for i in q['items'])[:900]
+        try:
+            wa_result = wa.send(lead['phone'], text, 'QUOTATION',
+                                [q.get('customerName', ''), q['quotationNumber'], products, f"₹{q['grandTotal']}", q['validUntil']])
+        except wa.WhatsAppError as e:
+            raise HttpError(502, str(e))
+        share.update(deliveryStatus='ACCEPTED', providerMessageId=wa_result['messageId'])
     new_status = q['status'] if q['status'] == 'VIEWED' else 'SHARED'
     updated = update_item(table('quotations'), {'quotationId': qid}, {
         'status': new_status, 'sharedAt': q.get('sharedAt') or share['at'], 'updatedAt': share['at'],
@@ -330,9 +340,16 @@ def _share(event, qid):
     if q.get('customerId'):
         notify_users([q['customerId']], 'New quotation', f"{q['quotationNumber']} — ₹{q['grandTotal']}, valid until {q['validUntil']}",
                      'QUOTATION', f'quotation/{qid}')
-    log_activity(q['leadId'], 'WHATSAPP' if channel == 'WHATSAPP' else 'QUOTATION', actor,
-                 f"Quotation {q['quotationNumber']} shared via {'WhatsApp (click-to-chat; delivery not tracked)' if channel == 'WHATSAPP' else 'in-app notification'}",
-                 {'quotationId': qid, 'channel': channel, 'deliveryStatus': share['deliveryStatus']})
+    via = {'WHATSAPP': 'WhatsApp (click-to-chat; delivery not tracked)', 'WHATSAPP_API': 'WhatsApp Business (delivery tracked)',
+           'IN_APP': 'in-app notification'}[channel]
+    act = log_activity(q['leadId'], 'WHATSAPP' if channel.startswith('WHATSAPP') else 'QUOTATION', actor,
+                       f"Quotation {q['quotationNumber']} shared via {via}",
+                       {'quotationId': qid, 'channel': 'CLOUD_API' if channel == 'WHATSAPP_API' else channel,
+                        'deliveryStatus': share['deliveryStatus'],
+                        **({'providerMessageId': wa_result['messageId']} if wa_result else {})})
+    if wa_result:
+        from lib import whatsapp as wa
+        wa.remember_message(wa_result['messageId'], q['leadId'], act['sortKey'])
     advance_stage(q['leadId'], 'QUOTATION_SHARED', actor, f"Quotation {q['quotationNumber']} shared")
     audit(actor, 'QUOTATION_SHARED', 'quotation', qid, {'channel': channel})
     result = {'quotation': _present(updated, actor), 'text': text}

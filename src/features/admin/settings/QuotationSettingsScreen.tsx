@@ -40,7 +40,7 @@ export const QuotationSettingsScreen = () => {
     <Page keyboard>
       {readOnly && <Alert type="info" message="Only a Super Admin can change these settings." />}
       <Section title="Pricing">
-        <Row gap={10}>
+        <Row gap={10} style={{ alignItems: 'flex-start' }}>
           <View style={{ flex: 1 }}><Field label="Default tax %" help="Used when a product has no tax rate">
             <Input value={String(f.defaultTaxRatePct)} onChangeText={v => set('defaultTaxRatePct')(num(v))} keyboardType="decimal-pad" editable={!readOnly} />
           </Field></View>

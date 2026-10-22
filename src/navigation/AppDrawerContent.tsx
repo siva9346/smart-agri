@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
 import { LogOut } from 'lucide-react-native';
 import { RootState, AppDispatch } from '../store';
-import { logout } from '../store/authSlice';
+import { signOut } from '../store/authActions';
 import { navigationRef } from './navigationRef';
 import { visibleSections, homeRoute } from './navConfig';
 import { useAuth } from '../hooks/useApi';
@@ -59,7 +59,7 @@ export const AppDrawerContent = ({ onClose }: { onClose: () => void }) => {
         ))}
       </ScrollView>
 
-      <TouchableOpacity style={styles.logout} onPress={() => dispatch(logout())} activeOpacity={0.6}>
+      <TouchableOpacity style={styles.logout} onPress={() => dispatch(signOut() as any)} activeOpacity={0.6}>
         <LogOut size={18} color={COLORS.error} />
         <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>

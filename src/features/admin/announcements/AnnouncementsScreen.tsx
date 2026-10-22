@@ -63,6 +63,14 @@ export const AnnouncementsScreen = ({ navigation }: any) => {
               <Stat label="Read" value={stats.data.read} />
               <Stat label="Dismissed" value={stats.data.dismissed} />
             </StatGrid>
+            {!!stats.data.push && Object.values(stats.data.push as Record<string, number>).some(Boolean) && (
+              <StatGrid>
+                <Stat label="Push: handed to Apple/Google" value={stats.data.push.DELIVERED_TO_OS} />
+                <Stat label="Push: sent to Expo" value={stats.data.push.SENT_TO_EXPO} hint="Receipt pending" />
+                <Stat label="Push: no device" value={stats.data.push.NO_DEVICE} />
+                <Stat label="Push: failed" value={stats.data.push.FAILED} tone={stats.data.push.FAILED ? TOKENS.colorError : undefined} />
+              </StatGrid>
+            )}
             {Object.entries(stats.data.channelStatus ?? {}).map(([ch, st]) => (
               <Text key={ch} style={TYPE.secondary}>{ch.replace('_', '-')}: {humanize(String(st))}</Text>
             ))}

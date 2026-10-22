@@ -60,13 +60,23 @@ def recipient_item(user_id: str, notif: dict) -> dict:
     }
 
 
-def write_recipients(user_ids, notif: dict) -> int:
+def write_recipients(user_ids, notif: dict, push: bool = False) -> int:
+    """Create one inbox record per user; with push=True also send via Expo push (status tracked per record)."""
+    user_ids = list(user_ids)
     count = 0
     with table('inbox').batch_writer(overwrite_by_pkeys=['userId', 'recipientKey']) as batch:
         for uid in user_ids:
             item = recipient_item(uid, notif)
             batch.put_item(Item={k: v for k, v in item.items() if v is not None})
             count += 1
+    if push and user_ids and is_started({'startsAt': notif.get('startsAt')}):
+        from lib.push import tokens_for, send_to_recipients
+        try:
+            tokens = tokens_for(user_ids)
+            key = recipient_item(user_ids[0], notif)['recipientKey']
+            send_to_recipients([{'userId': u, 'recipientKey': key, 'tokens': tokens.get(u, [])} for u in user_ids], notif)
+        except Exception as e:
+            print(f'push send failed: {e}')
     return count
 
 
@@ -107,7 +117,7 @@ def notify_users(user_ids, title: str, message: str, type_: str = 'GENERAL',
         'createdAt': now_iso(),
     }
     try:
-        write_recipients(ids, notif)
+        write_recipients(ids, notif, push=True)
     except Exception as e:  # a failed notification must not fail the business write
         print(f'notify failed: {e}')
 

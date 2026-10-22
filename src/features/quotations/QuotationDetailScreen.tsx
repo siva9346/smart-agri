@@ -5,6 +5,7 @@ import * as Sharing from 'expo-sharing';
 import { Send, CheckCircle, XCircle, Pencil, FileDown, MessageCircle, Bell, Ban, ExternalLink } from 'lucide-react-native';
 import { quotationApi, Quotation } from '../../services/platform';
 import { useApi, useAuth } from '../../hooks/useApi';
+import { useWhatsAppEnabled } from '../../hooks/useWhatsApp';
 import {
   Page, Section, KeyValue, StatusTag, Tag, Button, Row, Divider, ConfirmDialog, Alert, Loading, ErrorView, Sheet,
   Field, Input, formatDate, formatMoney, humanize, toast,
@@ -20,6 +21,7 @@ export const QuotationDetailScreen = ({ navigation, route }: any) => {
   const [busy, setBusy] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const waApi = useWhatsAppEnabled();
 
   const run = async (label: string, fn: () => Promise<Quotation>, done: string) => {
     setBusy(label);
@@ -34,7 +36,7 @@ export const QuotationDetailScreen = ({ navigation, route }: any) => {
     }
   };
 
-  const share = async (channel: 'WHATSAPP' | 'IN_APP') => {
+  const share = async (channel: 'WHATSAPP' | 'WHATSAPP_API' | 'IN_APP') => {
     setBusy(channel);
     try {
       const res = await quotationApi.share(id, channel);
@@ -43,6 +45,8 @@ export const QuotationDetailScreen = ({ navigation, route }: any) => {
       if (channel === 'WHATSAPP' && res.url) {
         await Linking.openURL(res.url);
         toast('WhatsApp opened — send the message to complete sharing', 'info');
+      } else if (channel === 'WHATSAPP_API') {
+        toast('Sent via WhatsApp Business — delivery is tracked on the lead');
       } else {
         toast('Sent to the customer’s app');
       }
@@ -176,7 +180,13 @@ export const QuotationDetailScreen = ({ navigation, route }: any) => {
 
       <Sheet visible={shareOpen} onClose={() => setShareOpen(false)} title="Share quotation">
         <View style={{ gap: 10 }}>
-          <Button title="WhatsApp" icon={MessageCircle} type="primary" loading={busy === 'WHATSAPP'} onPress={() => share('WHATSAPP')} />
+          {waApi && (
+            <>
+              <Button title="Send via WhatsApp Business" icon={MessageCircle} type="primary" loading={busy === 'WHATSAPP_API'} onPress={() => share('WHATSAPP_API')} />
+              <Text style={TYPE.caption}>Sent directly using the approved quotation template; delivery and read receipts are tracked.</Text>
+            </>
+          )}
+          <Button title={waApi ? 'Open WhatsApp instead' : 'WhatsApp'} icon={MessageCircle} type={waApi ? 'default' : 'primary'} loading={busy === 'WHATSAPP'} onPress={() => share('WHATSAPP')} />
           <Text style={TYPE.caption}>Opens WhatsApp with the quotation summary for you to send. Delivery is not tracked.</Text>
           {!!q.customerId && (
             <>

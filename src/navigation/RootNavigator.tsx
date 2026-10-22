@@ -11,6 +11,7 @@ import { CustomDrawer, useDrawer } from './CustomDrawer';
 import { AppDrawerContent } from './AppDrawerContent';
 import { updateUser } from '../store/authSlice';
 import { profileApi } from '../services/platform';
+import { registerForPush, listenForPushTaps } from '../services/push';
 import { ConsultationRequestScreen } from '../features/consultations/ConsultationRequestScreen';
 import { ConsultationListScreen } from '../features/consultations/ConsultationListScreen';
 import { ConsultationDetailScreen } from '../features/consultations/ConsultationDetailScreen';
@@ -27,6 +28,10 @@ import { QuotationListScreen } from '../features/quotations/QuotationListScreen'
 import { QuotationDetailScreen } from '../features/quotations/QuotationDetailScreen';
 import { TaskListScreen } from '../features/tasks/TaskListScreen';
 import { TaskFormScreen } from '../features/tasks/TaskFormScreen';
+import { CalendarScreen } from '../features/tasks/CalendarScreen';
+import { DailyReportScreen } from '../features/crm/DailyReportScreen';
+import { PerformanceScreen } from '../features/crm/PerformanceScreen';
+import { TargetsScreen } from '../features/crm/TargetsScreen';
 import { AiAssistantScreen } from '../features/ai/AiAssistantScreen';
 import { SettingsScreen } from '../features/settings/SettingsScreen';
 import { PreferencesScreen } from '../features/settings/PreferencesScreen';
@@ -37,6 +42,7 @@ import { AssignmentRulesScreen } from '../features/admin/settings/AssignmentRule
 import { QuotationSettingsScreen } from '../features/admin/settings/QuotationSettingsScreen';
 import { RolePermissionsScreen } from '../features/admin/settings/RolePermissionsScreen';
 import { AiConfigScreen } from '../features/admin/settings/AiConfigScreen';
+import { WhatsAppConfigScreen } from '../features/admin/settings/WhatsAppConfigScreen';
 import { AuditLogScreen } from '../features/admin/settings/AuditLogScreen';
 import { AnnouncementsScreen } from '../features/admin/announcements/AnnouncementsScreen';
 import { AnnouncementComposerScreen } from '../features/admin/announcements/AnnouncementComposerScreen';
@@ -176,6 +182,10 @@ const sharedScreens = (S: any, internal: boolean) => (
         <S.Screen name="QuotationBuilder" component={QuotationBuilderScreen} options={{ title: 'Quotation' }} />
         <S.Screen name="TaskList" component={TaskListScreen} options={{ title: 'Tasks & Calendar' }} />
         <S.Screen name="TaskForm" component={TaskFormScreen} options={{ title: 'Task' }} />
+        <S.Screen name="Calendar" component={CalendarScreen} options={{ title: 'Calendar' }} />
+        <S.Screen name="DailyReport" component={DailyReportScreen} options={{ title: 'Daily Report' }} />
+        <S.Screen name="Performance" component={PerformanceScreen} options={{ title: 'Team Performance' }} />
+        <S.Screen name="Targets" component={TargetsScreen} options={{ title: 'Sales Targets' }} />
         <S.Screen name="UserManagement" component={UserManagementScreen} options={{ title: 'User Management' }} />
         <S.Screen name="UserForm" component={UserFormScreen} options={{ title: 'Team Member' }} />
         <S.Screen name="ExpertCoverage" component={ExpertCoverageScreen} options={{ title: 'Experts & Coverage' }} />
@@ -183,6 +193,7 @@ const sharedScreens = (S: any, internal: boolean) => (
         <S.Screen name="QuotationSettings" component={QuotationSettingsScreen} options={{ title: 'Quotation Settings' }} />
         <S.Screen name="RolePermissions" component={RolePermissionsScreen} options={{ title: 'Roles & Permissions' }} />
         <S.Screen name="AiConfig" component={AiConfigScreen} options={{ title: 'AI Configuration' }} />
+        <S.Screen name="WhatsAppConfig" component={WhatsAppConfigScreen} options={{ title: 'WhatsApp Business' }} />
         <S.Screen name="AuditLog" component={AuditLogScreen} options={{ title: 'Audit Logs' }} />
         <S.Screen name="Announcements" component={AnnouncementsScreen} options={{ title: 'Announcements' }} />
         <S.Screen name="AnnouncementComposer" component={AnnouncementComposerScreen} options={{ title: 'New Announcement' }} />
@@ -414,7 +425,11 @@ export const RootNavigator = ({ role, onLogout }: { role: UserRole, onLogout: ()
     profileApi.get()
       .then(p => dispatch(updateUser({ permissions: p.permissions, name: p.name })))
       .catch(() => {});
+    registerForPush();
   }, [dispatch]);
+
+  // Tapping a push notification opens the linked consultation / lead / quotation.
+  useEffect(() => listenForPushTaps(role), [role]);
 
   return (
     <CustomDrawer renderContent={(close) => <AppDrawerContent onClose={close} />}>

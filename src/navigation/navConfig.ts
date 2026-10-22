@@ -2,7 +2,7 @@ import {
   Home, Bell, ListChecks, Sprout, HeartPulse, Stethoscope, ClipboardList, Sparkles, LayoutDashboard, Users, Columns3,
   UserPlus, Package, FileText, CalendarClock, Activity, BarChart3, UserCircle, MessagesSquare, ShieldCheck, GitBranch,
   Megaphone, ScrollText, Settings, CloudRain, ShoppingBag, ShoppingCart, Truck, BookOpen, MessageSquare, AlertTriangle,
-  Thermometer, TrendingUp, Gauge, Phone,
+  Thermometer, TrendingUp, Gauge, Phone, CalendarDays, MapPin, Target,
 } from 'lucide-react-native';
 import { UserRole } from '../types/domain';
 
@@ -95,6 +95,18 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    title: 'Activities',
+    show: c => c.can('tasks.manage'),
+    items: [
+      { label: 'Calendar', icon: CalendarDays, screen: 'Calendar' },
+      { label: 'Tasks', icon: ListChecks, screen: 'TaskList', params: { kind: 'TASK' } },
+      { label: 'Daily Report', icon: ClipboardList, screen: 'DailyReport' },
+      { label: 'Field Work', icon: MapPin, screen: 'TaskList', params: { kind: 'FIELD_VISIT' } },
+      { label: 'Staff Performance', icon: BarChart3, screen: 'Performance', show: c => c.can('reports.team') },
+      { label: 'Sales Targets', icon: Target, screen: 'Targets', show: c => c.role !== 'EXPERT' },
+    ],
+  },
+  {
     title: 'Customer Care',
     show: isAdmin,
     items: [
@@ -120,7 +132,7 @@ export const NAV_SECTIONS: NavSection[] = [
   },
   {
     title: 'Administration',
-    show: c => c.can('users.manage') || c.can('announcements.send') || c.can('ai.configure') || c.can('audit.view'),
+    show: c => c.can('users.manage') || c.can('announcements.send') || c.can('ai.configure') || c.can('audit.view') || c.can('integrations.configure'),
     items: [
       { label: 'User Management', icon: Users, screen: 'UserManagement', show: c => c.can('users.manage') },
       { label: 'Add Super Admin / Admin', icon: UserPlus, screen: 'AddAdmin', show: isSuper },
@@ -130,6 +142,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Quotation Settings', icon: FileText, screen: 'QuotationSettings', show: isAdmin },
       { label: 'Notification Management', icon: Megaphone, screen: 'Announcements', show: c => c.can('announcements.send') },
       { label: 'AI Configuration', icon: Sparkles, screen: 'AiConfig', show: c => c.can('ai.configure') },
+      { label: 'WhatsApp Business', icon: MessagesSquare, screen: 'WhatsAppConfig', show: c => c.can('integrations.configure') },
       { label: 'Audit Logs', icon: ScrollText, screen: 'AuditLog', show: c => c.can('audit.view') },
     ],
   },

@@ -89,9 +89,10 @@ def fresh_state():
         _s3.create_bucket(Bucket='test-photos', CreateBucketConfiguration={'LocationConstraint': 'ap-south-1'})
     except _s3.exceptions.BucketAlreadyOwnedByYou:
         pass
-    from lib import settings, ai
+    from lib import settings, ai, secrets
     settings._cache.clear()
     ai._key_cache.clear()
+    secrets._cache.clear()
     yield
     _drop_tables()
     ssm = boto3.client('ssm', region_name='ap-south-1')

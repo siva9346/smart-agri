@@ -7,7 +7,7 @@ from lib.crm import log_activity
 from lib.notify import notify_users
 from lib.util import HttpError, now_iso, new_id
 
-KINDS = ('FOLLOW_UP', 'APPOINTMENT', 'TASK')
+KINDS = ('FOLLOW_UP', 'APPOINTMENT', 'TASK', 'FIELD_VISIT')
 STATUSES = ('OPEN', 'COMPLETED', 'CANCELLED', 'NO_SHOW')
 PRIORITIES = ('LOW', 'MEDIUM', 'HIGH', 'URGENT')
 FOLLOW_UP_TYPES = ('CALL', 'WHATSAPP', 'VISIT', 'MEETING', 'OTHER')
@@ -69,6 +69,8 @@ def create_task_record(data: dict, actor: dict) -> dict:
         if ftype not in FOLLOW_UP_TYPES:
             raise HttpError(400, 'invalid followUpType')
         task['followUpType'] = ftype
+    if kind == 'FIELD_VISIT':
+        task['purpose'] = (data.get('purpose') or '')[:500]
     if kind == 'APPOINTMENT':
         method = (data.get('meetingMethod') or 'IN_PERSON').upper()
         if method not in MEETING_METHODS:

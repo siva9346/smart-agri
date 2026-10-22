@@ -18,7 +18,7 @@ export const CrmDashboardScreen = ({ navigation }: any) => {
     <Page refreshing={refreshing} onRefresh={refresh}>
       <Text style={TYPE.secondary}>{scopeLabel}</Text>
       <Section title="Quick actions" padded>
-        <Row wrap gap={4} style={{ justifyContent: 'space-between' }}>
+        <Row wrap gap={4} style={{ justifyContent: 'flex-start' }}>
           {can('lead.create') && <ActionTile label="New lead" icon={Plus} onPress={() => navigation.navigate('LeadForm')} />}
           <ActionTile label="Leads" icon={Users} onPress={() => navigation.navigate('LeadList')} />
           <ActionTile label="Pipeline" icon={Columns3} onPress={() => navigation.navigate('Pipeline')} />

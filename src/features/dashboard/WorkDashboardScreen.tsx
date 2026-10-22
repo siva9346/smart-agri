@@ -31,10 +31,10 @@ export const WorkDashboardScreen = ({ navigation }: any) => {
   return (
     <Page refreshing={refreshing} onRefresh={refresh}>
       <NotificationBanner />
-      <Text style={TYPE.h1}>Hello, {user?.name?.split(' ')[0]}</Text>
+      <Text style={TYPE.h1}>Hello, {user?.name}</Text>
 
       <Section>
-        <Row wrap gap={4} style={{ justifyContent: 'space-between' }}>
+        <Row wrap gap={4} style={{ justifyContent: 'flex-start' }}>
           {isExpert
             ? <ActionTile label="Consultations" icon={Stethoscope} onPress={() => navigation.navigate('ConsultationList')} />
             : <ActionTile label="New lead" icon={Plus} onPress={() => navigation.navigate('LeadForm')} />}

@@ -2,10 +2,10 @@ import React from 'react';
 import { Text, View } from 'react-native';
 import {
   User, SlidersHorizontal, Lock, Bell, Megaphone, Sparkles, Users, ShieldCheck, Stethoscope, GitBranch, FileText,
-  ScrollText, LogOut,
+  ScrollText, LogOut, MessagesSquare,
 } from 'lucide-react-native';
 import { useDispatch } from 'react-redux';
-import { logout } from '../../store/authSlice';
+import { signOut } from '../../store/authActions';
 import { useAuth } from '../../hooks/useApi';
 import { Page, Section, ListRow, Avatar, Row, Tag, humanize } from '../../ui';
 import { TOKENS, TYPE } from '../../theme';
@@ -53,10 +53,12 @@ export const SettingsScreen = ({ navigation }: any) => {
       </Section>
 
       {can('ai.configure') && (
-        <Section title="AI configuration" padded={false}>
+        <Section title="AI & integrations" padded={false}>
           <View style={{ paddingHorizontal: 16 }}>
             <ListRow left={<Icon icon={Sparkles} color={TOKENS.colorInfo} />} title="AI providers & features"
                      subtitle="Global switch, OpenAI, Gemini, feature toggles, connection tests" onPress={go('AiConfig')} />
+            {can('integrations.configure') && <ListRow left={<Icon icon={MessagesSquare} color="#25A244" />} title="WhatsApp Business"
+                     subtitle="Cloud API, webhook, templates, consent keywords" onPress={go('WhatsAppConfig')} />}
           </View>
         </Section>
       )}
@@ -77,7 +79,7 @@ export const SettingsScreen = ({ navigation }: any) => {
       <Section padded={false}>
         <View style={{ paddingHorizontal: 16 }}>
           <ListRow left={<Icon icon={LogOut} color={TOKENS.colorError} />} title={<Text style={[TYPE.h3, { color: TOKENS.colorError }]}>Log out</Text>}
-                   onPress={() => dispatch(logout())} chevron={false} />
+                   onPress={() => dispatch(signOut() as any)} chevron={false} />
         </View>
       </Section>
       {isSuper && <Text style={[TYPE.caption, { textAlign: 'center' }]}>Signed in as Super Admin</Text>}

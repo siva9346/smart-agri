@@ -113,7 +113,7 @@ export const LeadFormScreen = ({ navigation, route }: any) => {
         <Field label="Priority" required>
           <Segmented value={form.priority} options={PRIORITIES.map(p => ({ label: humanize(p), value: p }))} onChange={set('priority')} />
         </Field>
-        <Row gap={10}>
+        <Row gap={10} style={{ alignItems: 'flex-start' }}>
           <View style={{ flex: 1 }}><Field label="Crop"><Input value={form.cropName} onChangeText={set('cropName')} /></Field></View>
           <View style={{ flex: 1 }}><Field label="Farm size"><Input value={form.farmSize} onChangeText={set('farmSize')} placeholder="e.g. 3 acres" /></Field></View>
         </Row>

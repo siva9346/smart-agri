@@ -132,7 +132,7 @@ export const AnnouncementComposerScreen = ({ navigation }: any) => {
           <Input value={actionLink} onChangeText={setActionLink} autoCapitalize="none" />
         </Field>
         <SwitchRow label="In-app notification" description="Always on" value onChange={() => {}} disabled />
-        <SwitchRow label="Push notification" description="No push provider is configured yet — this will be recorded as not delivered" value={push} onChange={setPush} />
+        <SwitchRow label="Push notification" description="Sent via Expo push to users with the app installed and push enabled. Delivery status appears in Delivery stats." value={push} onChange={setPush} />
       </Section>
 
       <Section title="Preview">
@@ -146,7 +146,7 @@ export const AnnouncementComposerScreen = ({ navigation }: any) => {
         <Text style={TYPE.caption}>To: {audienceLabel}{startsAt ? ` · from ${formatDate(startsAt)}` : ''}{expiresAt ? ` · until ${formatDate(expiresAt)}` : ''}</Text>
       </Section>
 
-      {!!errors.length && title && <Alert type="warning" message={errors.join(' · ')} />}
+      {!!errors.length && !!title && <Alert type="warning" message={errors.join(' · ')} />}
       <Button title={startsAt ? 'Schedule announcement' : 'Send announcement'} type="primary" icon={Send} block
               disabled={!!errors.length} onPress={() => setConfirm(true)} />
       <ConfirmDialog visible={confirm} title="Send this announcement?" message={`To: ${audienceLabel}`} confirmText="Send" loading={sending}

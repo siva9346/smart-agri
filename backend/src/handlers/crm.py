@@ -68,6 +68,13 @@ def _route(event, m, seg):
     if head == 'reports' and m == 'GET':    return _reports(event)
     if head == 'activities' and m == 'GET': return _activities(event)
     if head == 'customers' and len(rest) == 1 and m == 'GET': return _customer(event, rest[0])
+    if head in ('daily-report', 'performance', 'targets'):
+        from handlers import crm_reports
+        if head == 'daily-report' and m == 'GET': return crm_reports.daily_report(event)
+        if head == 'performance' and m == 'GET':  return crm_reports.performance(event)
+        if head == 'targets' and m == 'GET':      return crm_reports.targets(event)
+        if head == 'targets' and m == 'PUT':      return crm_reports.set_target(event)
+        return None
     if head != 'leads':
         return None
     if not rest:
@@ -473,10 +480,37 @@ def _whatsapp(event, lead_id):
     if kind not in WHATSAPP_KINDS:
         raise HttpError(400, 'invalid kind')
     text = _whatsapp_text(kind, lead, actor, clean_str(body, 'text', 3000, required=(kind == 'CUSTOM')))
+    if body.get('send'):
+        # WhatsApp Business Cloud API: real send, delivery tracked through the webhook.
+        from lib import whatsapp as wa
+        params = _template_params(kind, lead, actor)
+        try:
+            res = wa.send(lead['phone'], text, kind, params)
+        except wa.WhatsAppError as e:
+            log_activity(lead_id, 'WHATSAPP', actor, f"WhatsApp send failed: {e}",
+                         {'kind': kind, 'channel': 'CLOUD_API', 'deliveryStatus': 'FAILED', 'error': str(e)})
+            raise HttpError(502, str(e))
+        act = log_activity(lead_id, 'WHATSAPP', actor, f"WhatsApp sent ({kind.replace('_', ' ').lower()}, {res['mode'].lower()})",
+                           {'kind': kind, 'channel': 'CLOUD_API', 'deliveryStatus': 'ACCEPTED', 'mode': res['mode'],
+                            'providerMessageId': res['messageId'], 'text': text[:1000]})
+        wa.remember_message(res['messageId'], lead_id, act['sortKey'])
+        return created({'sent': True, 'text': text, 'activity': act})
     url = f"https://wa.me/{lead['phone'].lstrip('+')}?text={quote(text)}"
     act = log_activity(lead_id, 'WHATSAPP', actor, f"WhatsApp chat opened ({kind.replace('_', ' ').lower()})",
                        {'kind': kind, 'channel': 'CLICK_TO_CHAT', 'deliveryStatus': 'NOT_TRACKED', 'text': text[:1000]})
     return created({'url': url, 'text': text, 'activity': act})
+
+
+def _template_params(kind: str, lead: dict, actor: dict) -> list[str]:
+    name = lead.get('customerName', '')
+    if kind == 'GREETING':
+        return [name, actor.get('name', '')]
+    if kind == 'FOLLOW_UP':
+        return [name, (lead.get('requirement') or '')[:200]]
+    if kind == 'CONSULTATION_SUMMARY':
+        c = table('consultations').get_item(Key={'consultationId': lead.get('consultationId') or '-'}).get('Item') or {}
+        return [name, c.get('cropName', ''), ((c.get('recommendation') or {}).get('text') or '')[:900]]
+    return []
 
 
 # ── Dashboards & reports ────────────────────────────────────────────────────

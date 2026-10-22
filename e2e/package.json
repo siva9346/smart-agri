@@ -1,0 +1,13 @@
+{
+  "name": "smart-agri-e2e",
+  "private": true,
+  "description": "Browser end-to-end tests for the Expo web build against backend/scripts/local_api.py",
+  "scripts": {
+    "smoke": "node smoke.js",
+    "flows": "node flows.js",
+    "test": "node smoke.js && node flows.js"
+  },
+  "dependencies": {
+    "playwright-core": "1.56.1"
+  }
+}

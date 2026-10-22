@@ -53,6 +53,8 @@ def _list(event):
     status = (query_param(event, 'status') or '').upper()
     lead_id = query_param(event, 'leadId')
     overdue = query_param(event, 'overdue') == '1'
+    date_from = query_param(event, 'from')   # calendar range on dueAt (ISO)
+    date_to = query_param(event, 'to')
     cursor = decode_key(query_param(event, 'cursor'))
     tbl = table('tasks')
 
@@ -81,6 +83,14 @@ def _list(event):
         if not has_permission(actor, 'tasks.manage'):
             raise HttpError(403, 'Access denied')
         kwargs.update(IndexName='AssigneeIndex', KeyConditionExpression=Key('assigneeId').eq(actor['userId']))
+
+    if date_from and date_to:
+        span = Key('dueAt').between(date_from, date_to)
+        if 'KeyConditionExpression' in kwargs:
+            kwargs['KeyConditionExpression'] = kwargs['KeyConditionExpression'] & span
+        else:
+            filters.append(Attr('dueAt').between(date_from, date_to))
+        kwargs['Limit'] = 500  # a month of tasks in one page for the calendar
 
     if filters:
         f = filters[0]
@@ -164,6 +174,23 @@ def _update(event, task_id):
         events.append(f"Reassigned to {assignee.get('name')}")
         notify_users([assignee['userId']], 'Task assigned to you', updates.get('title', task['title']), 'CRM_TASK',
                      f'task/{task_id}')
+    if body.get('checkIn'):
+        ci = body['checkIn'] or {}
+        try:
+            lat, lng = float(ci['lat']), float(ci['lng'])
+        except (KeyError, TypeError, ValueError):
+            raise HttpError(400, 'checkIn needs lat and lng')
+        if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+            raise HttpError(400, 'invalid coordinates')
+        from decimal import Decimal
+        entry = {'at': now_iso(), 'by': actor['userId'], 'lat': Decimal(str(round(lat, 6))), 'lng': Decimal(str(round(lng, 6)))}
+        if ci.get('accuracy') is not None:
+            entry['accuracyM'] = Decimal(str(round(float(ci['accuracy']), 1)))
+        updates['checkIns'] = (task.get('checkIns') or []) + [entry]
+        events.append(f"Checked in at {entry['lat']}, {entry['lng']}")
+    if 'visitReport' in body:
+        updates['visitReport'] = clean_str(body, 'visitReport', 4000) or None
+        events.append('Visit report updated')
     if body.get('status'):
         status = body['status'].upper()
         if status not in STATUSES:

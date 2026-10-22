@@ -85,7 +85,7 @@ export const AiConfigScreen = () => {
     <>
       <Page keyboard>
         <Section>
-          <Row gap={10}>
+          <Row gap={10} style={{ alignItems: 'flex-start' }}>
             <Sparkles size={22} color={TOKENS.colorInfo} />
             <Text style={[TYPE.h2, { flex: 1 }]}>AI Enabled</Text>
             <Tag text={data.enabled ? 'ON' : 'OFF'} color={data.enabled ? 'green' : 'default'} />
@@ -105,7 +105,7 @@ export const AiConfigScreen = () => {
               <KeyValue label="API key" value={pc.keyConfigured ? <Row gap={6}><KeyRound size={14} color={TOKENS.colorSuccess} /><Text style={TYPE.body}>{pc.keyHint}</Text></Row> : 'Not set'} />
               <KeyValue label="Last test" value={pc.lastTestAt ? `${pc.lastTestOk ? '✓ OK' : '✕ Failed'} · ${formatDate(pc.lastTestAt)}` : 'Never'} />
               <KeyValue label="Last success" value={pc.lastSuccessAt ? formatDate(pc.lastSuccessAt) : undefined} />
-              {!!pc.lastTestError && !pc.lastTestOk && <Alert type="error" message={pc.lastTestError} />}
+              {!!pc.lastTestError && !pc.lastTestOk && !tr && <Alert type="error" message={pc.lastTestError} />}
 
               <Field label={pc.keyConfigured ? 'Rotate API key' : 'API key'} help={pc.keyConfigured ? 'Leave empty to keep the saved key' : 'Stored encrypted on the server; never shown again'}>
                 <Input value={keys[p.id]} onChangeText={v => setKeys(k => ({ ...k, [p.id]: v }))} placeholder={pc.keyConfigured ? pc.keyHint : p.placeholder}

@@ -20,7 +20,38 @@ def handler(_event, _ctx):
         'reminders': _reminders(),
         'escalations': _escalations(),
         'expiredQuotations': _expire_quotations(),
+        'scheduledPushes': _scheduled_pushes(),
+        'pushReceipts': _push_receipts(),
     }
+
+
+def _scheduled_pushes() -> int:
+    """Send the push for scheduled announcements whose start time has arrived."""
+    from lib.notify import is_started
+    from lib.push import tokens_for, send_to_recipients
+    from lib.util import scan_all
+    due = [n for n in scan_all(table('notifications'), FilterExpression=Attr('channelStatus.PUSH').eq('NOT_SENT_SCHEDULED'))
+           if is_started(n)]
+    for n in due:
+        recs = query_all(table('inbox'), IndexName='NotifIndex', KeyConditionExpression=Key('notifId').eq(n['notifId']),
+                         ProjectionExpression='userId, recipientKey')
+        try:
+            tokens = tokens_for([r['userId'] for r in recs])
+            send_to_recipients([{'userId': r['userId'], 'recipientKey': r['recipientKey'], 'tokens': tokens.get(r['userId'], [])}
+                                for r in recs], n)
+        finally:
+            table('notifications').update_item(Key={'notifId': n['notifId']}, UpdateExpression='SET channelStatus.PUSH = :s',
+                                               ExpressionAttributeValues={':s': 'SENT'})
+    return len(due)
+
+
+def _push_receipts() -> int:
+    from lib.push import collect_receipts
+    try:
+        return collect_receipts()
+    except Exception as e:
+        print(f'push receipts failed: {e}')
+        return 0
 
 
 def _reminders() -> int:

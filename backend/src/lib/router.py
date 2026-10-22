@@ -1,4 +1,6 @@
 """Shared request wrapper for the newer handlers: OPTIONS, error mapping, path splitting."""
+from urllib.parse import unquote
+
 from botocore.exceptions import ClientError
 
 from lib.auth import AuthError, ForbiddenError
@@ -8,7 +10,9 @@ from lib.response import _json, no_content, unauthorized, forbidden, server_err,
 
 def segments(event) -> list[str]:
     proxy = path_param(event) or ''
-    return [s for s in proxy.split('/') if s]
+    # Decode each segment so encoded ids (e.g. ':' in inbox keys) match whether or
+    # not the gateway already decoded the path.
+    return [unquote(s) for s in proxy.split('/') if s]
 
 
 def run(event, route):

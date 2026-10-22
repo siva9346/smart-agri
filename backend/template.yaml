@@ -33,6 +33,7 @@ Globals:
         AUDIT_TABLE: !Ref AuditTable
         PHOTOS_BUCKET: !Ref RecordPhotosBucket
         AI_KEY_PARAM_PREFIX: /naveena/ai/
+        SECRET_PARAM_PREFIX: /naveena/
   HttpApi:
     CorsConfiguration:
       AllowOrigins: ['*']
@@ -309,6 +310,35 @@ Resources:
               - !GetAtt CropCyclesTable.Arn
               - !Sub '${CropCyclesTable.Arn}/index/*'
 
+  # ── WhatsApp Business secrets (SSM SecureString under /naveena/whatsapp/*) ────
+  WhatsAppSecretsPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Read/write the WhatsApp Business access token, app secret and webhook verify token
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: [ssm:GetParameter, ssm:PutParameter, ssm:DeleteParameter]
+            Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/naveena/whatsapp/*'
+          - Effect: Allow
+            Action: [kms:Encrypt, kms:Decrypt]
+            Resource: '*'
+            Condition:
+              StringEquals:
+                kms:ViaService: !Sub 'ssm.${AWS::Region}.amazonaws.com'
+
+  WhatsAppFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.whatsapp.handler
+      Description: WhatsApp Business config, test send and signed Meta webhook (statuses, inbound messages, opt-out)
+      Policies:
+        - !Ref CoreDataPolicy
+        - !Ref WhatsAppSecretsPolicy
+      Events:
+        Sub: { Type: HttpApi, Properties: { Path: "/whatsapp/{proxy+}", Method: ANY, ApiId: !Ref Api } }
+
   # ── Expert consultations ("Get Suggestions from Experts") ────────────────────
   ConsultationsFunction:
     Type: AWS::Serverless::Function
@@ -333,6 +363,7 @@ Resources:
       Description: Shared CRM – leads, pipeline, activities, calls, WhatsApp click-to-chat, dashboards
       Policies:
         - !Ref CoreDataPolicy
+        - !Ref WhatsAppSecretsPolicy
       Events:
         Sub: { Type: HttpApi, Properties: { Path: "/crm/{proxy+}", Method: ANY, ApiId: !Ref Api } }
 
@@ -344,6 +375,7 @@ Resources:
       Description: Product quotations – backend pricing, approval, sharing, customer response
       Policies:
         - !Ref CoreDataPolicy
+        - !Ref WhatsAppSecretsPolicy
       Events:
         Root: { Type: HttpApi, Properties: { Path: /quotations,           Method: ANY, ApiId: !Ref Api } }
         Sub:  { Type: HttpApi, Properties: { Path: "/quotations/{proxy+}", Method: ANY, ApiId: !Ref Api } }
@@ -899,6 +931,8 @@ Resources:
         - { AttributeName: userId, AttributeType: S }
         - { AttributeName: recipientKey, AttributeType: S }
         - { AttributeName: notifId, AttributeType: S }
+        - { AttributeName: pushPending, AttributeType: S }
+        - { AttributeName: createdAt, AttributeType: S }
       KeySchema:
         - { AttributeName: userId, KeyType: HASH }
         - { AttributeName: recipientKey, KeyType: RANGE }
@@ -906,6 +940,11 @@ Resources:
         - IndexName: NotifIndex
           KeySchema:
             - { AttributeName: notifId, KeyType: HASH }
+          Projection: { ProjectionType: ALL }
+        - IndexName: PushPendingIndex   # sparse: only items awaiting an Expo push receipt
+          KeySchema:
+            - { AttributeName: pushPending, KeyType: HASH }
+            - { AttributeName: createdAt, KeyType: RANGE }
           Projection: { ProjectionType: ALL }
       TimeToLiveSpecification: { AttributeName: purgeAt, Enabled: true }   # notification history retention
 

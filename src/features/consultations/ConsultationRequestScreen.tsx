@@ -101,7 +101,7 @@ export const ConsultationRequestScreen = ({ navigation, route }: any) => {
         <Field label="Crop name" required error={errors.cropName}>
           <Input value={form.cropName} onChangeText={set('cropName')} placeholder="e.g. Tomato" error={!!errors.cropName} />
         </Field>
-        <Row gap={10}>
+        <Row gap={10} style={{ alignItems: 'flex-start' }}>
           <View style={{ flex: 1 }}><Field label="Variety"><Input value={form.variety} onChangeText={set('variety')} placeholder="Optional" /></Field></View>
           <View style={{ flex: 1 }}><Field label="Growth stage"><Input value={form.growthStage} onChangeText={set('growthStage')} placeholder="e.g. Flowering" /></Field></View>
         </Row>
@@ -147,7 +147,7 @@ export const ConsultationRequestScreen = ({ navigation, route }: any) => {
       <Section title="More details" extra={<Button title={more ? 'Hide' : 'Add'} type="text" size="sm" onPress={() => setMore(m => !m)} />}>
         {!more ? <Text style={TYPE.secondary}>Optional: affected area, location, soil, irrigation, treatments already tried.</Text> : (
           <>
-            <Row gap={10}>
+            <Row gap={10} style={{ alignItems: 'flex-start' }}>
               <View style={{ flex: 1 }}><Field label="Affected area"><Input value={form.affectedArea} onChangeText={set('affectedArea')} placeholder="e.g. 0.5 acre" /></Field></View>
               <View style={{ flex: 1 }}><Field label="Farm location"><Input value={form.farmLocation} onChangeText={set('farmLocation')} placeholder="Village" /></Field></View>
             </Row>

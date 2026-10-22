@@ -6,7 +6,7 @@ import { usePaged, useAuth } from '../../hooks/useApi';
 import { Loading, ErrorView, Empty, Segmented, Button, StatusTag, Tag, formatDate, humanize } from '../../ui';
 import { TOKENS, TYPE } from '../../theme';
 
-const KIND_ICON: Record<string, any> = { FOLLOW_UP: Phone, APPOINTMENT: CalendarClock, TASK: ClipboardList };
+const KIND_ICON: Record<string, any> = { FOLLOW_UP: Phone, APPOINTMENT: CalendarClock, TASK: ClipboardList, FIELD_VISIT: MapPin };
 const FOLLOW_ICON: Record<string, any> = { WHATSAPP: MessageCircle, VISIT: MapPin };
 
 /** Calendar-style agenda grouped by day, with overdue items pinned on top. */
@@ -64,7 +64,7 @@ export const TaskListScreen = ({ navigation, route }: any) => {
         )}
         <Segmented value={kind} onChange={setKind} options={[
           { label: 'All types', value: '' }, { label: 'Follow-ups', value: 'FOLLOW_UP' },
-          { label: 'Appointments', value: 'APPOINTMENT' }, { label: 'Tasks', value: 'TASK' }]} />
+          { label: 'Appointments', value: 'APPOINTMENT' }, { label: 'Field visits', value: 'FIELD_VISIT' }, { label: 'Tasks', value: 'TASK' }]} />
         <Segmented value={status} onChange={setStatus} options={[
           { label: 'Open', value: 'OPEN' }, { label: 'Overdue', value: 'OVERDUE' },
           { label: 'Completed', value: 'COMPLETED' }, { label: 'All', value: '' }]} />

@@ -69,6 +69,21 @@ DEFAULTS = {
         'companyContact': '',
     },
 
+    'whatsapp': {
+        'enabled': False,
+        'phoneNumberId': '',
+        'businessAccountId': '',
+        'apiVersion': 'v21.0',
+        # kind → approved template {name, language}. Body parameters, in order:
+        #   GREETING: customer name, staff name
+        #   FOLLOW_UP: customer name, requirement
+        #   CONSULTATION_SUMMARY: customer name, crop, recommendation
+        #   QUOTATION: customer name, quotation no., products, total, valid until
+        'templates': {},
+        'optOutKeywords': ['STOP', 'UNSUBSCRIBE', 'STOP ALL'],
+        'optInKeywords': ['START', 'SUBSCRIBE'],
+    },
+
     'ai': {
         'enabled': False,
         'strategy': 'OPENAI_PREFERRED',   # OPENAI_PREFERRED | GEMINI_PREFERRED

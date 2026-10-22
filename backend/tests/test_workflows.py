@@ -562,7 +562,8 @@ def test_reminders_and_escalation_job():
     result = scheduler.handler({}, None)
     assert result['reminders'] == 1 and result['escalations'] == 1
     assert any(n['type'] == 'REMINDER' for n in inbox(staff))
-    assert scheduler.handler({}, None) == {'reminders': 0, 'escalations': 0, 'expiredQuotations': 0}
+    again = scheduler.handler({}, None)
+    assert again['reminders'] == 0 and again['escalations'] == 0 and again['expiredQuotations'] == 0
 
 
 @pytest.mark.parametrize('role', ['FARMER', 'STAFF', 'EXPERT', 'ADMIN', 'SUPER_ADMIN'])
@@ -592,3 +593,68 @@ def test_legacy_alert_screen_types_still_accepted(legacy):
     adm = make_user('ADMIN')
     st, _ = call(notifications, 'POST', '', adm, {'title': 't', 'message': 'm', 'type': legacy, 'targetRole': 'ALL'})
     assert st == 201
+
+
+def test_url_encoded_inbox_key_is_accepted():
+    from urllib.parse import quote
+    adm, farmer = make_user('ADMIN'), make_user('FARMER')
+    call(notifications, 'POST', '', adm, {'title': 'Hi', 'message': 'm', 'audience': 'CUSTOMERS'})
+    key = inbox(farmer)[0]['recipientKey']
+    st, item = call(notifications, 'POST', f'inbox/{quote(key, safe="")}/read', farmer)
+    assert st == 200 and item['isRead']
+
+
+# ── Field work, daily report, performance, targets, calendar ────────────────
+
+def test_field_visit_check_in_and_daily_report():
+    staff = make_user('STAFF')
+    _, lead = call(crm, 'POST', 'leads', staff, {'customerName': 'V', 'phone': '9000000077', 'location': 'X',
+                                                 'source': 'FIELD_VISIT', 'requirement': 'Soil test'})
+    call(crm, 'POST', f"leads/{lead['leadId']}/calls", staff, {'outcome': 'CONNECTED', 'notes': 'ok'})
+    st, visit = call(tasks, 'POST', '', staff, {'kind': 'FIELD_VISIT', 'title': 'Visit farm', 'dueAt': '2030-01-01T09:00',
+                                                'leadId': lead['leadId'], 'location': 'Gobi', 'purpose': 'Soil sampling'})
+    assert st == 201 and visit['kind'] == 'FIELD_VISIT'
+    assert call(tasks, 'PUT', visit['taskId'], staff, {'checkIn': {'lat': 200, 'lng': 1}})[0] == 400
+    st, v2 = call(tasks, 'PUT', visit['taskId'], staff, {'checkIn': {'lat': 11.45, 'lng': 77.43, 'accuracy': 12}})
+    assert st == 200 and len(v2['checkIns']) == 1
+    st, v3 = call(tasks, 'PUT', visit['taskId'], staff, {'visitReport': 'Collected 3 samples', 'status': 'COMPLETED', 'outcome': 'Done'})
+    assert v3['visitReport'] == 'Collected 3 samples'
+    st, rep = call(crm, 'GET', 'daily-report', staff)
+    assert st == 200 and rep['counts']['callsConnected'] == 1 and rep['counts']['fieldVisits'] == 1
+    assert rep['counts']['tasksCompleted'] == 1 and rep['counts']['leadsCreated'] == 1
+    other = make_user('STAFF')
+    assert call(crm, 'GET', 'daily-report', other, query={'userId': staff['userId']})[0] == 403
+    assert call(crm, 'GET', 'daily-report', make_user('ADMIN'), query={'userId': staff['userId']})[0] == 200
+
+
+def test_targets_progress_from_accepted_quotations_and_won_leads():
+    from datetime import datetime, timezone
+    adm, staff, farmer = make_user('ADMIN'), make_user('STAFF'), make_user('FARMER')
+    month = datetime.now(timezone.utc).strftime('%Y-%m')
+    assert call(crm, 'PUT', 'targets', staff, {'month': month, 'userId': staff['userId'], 'revenue': 1000})[0] == 403
+    assert call(crm, 'PUT', 'targets', adm, {'month': month, 'userId': staff['userId'], 'revenue': 1000, 'wonLeads': 2})[0] == 200
+    p = make_product(price='250.00')
+    _, lead = call(crm, 'POST', 'leads', staff, {'customerName': farmer['name'], 'phone': farmer['phone'], 'location': 'X',
+                                                 'source': 'OTHER', 'requirement': 'R'})
+    _, q = call(quotations, 'POST', '', staff, {'leadId': lead['leadId'], 'items': [{'productId': p['productId'], 'quantity': 2}]})
+    call(quotations, 'POST', f"{q['quotationId']}/submit", staff)
+    call(quotations, 'POST', f"{q['quotationId']}/approve", adm)
+    call(quotations, 'POST', f"{q['quotationId']}/share", staff, {'channel': 'IN_APP'})
+    call(quotations, 'POST', f"{q['quotationId']}/respond", farmer, {'decision': 'ACCEPT'})
+    call(crm, 'PUT', f"leads/{lead['leadId']}/stage", staff, {'stage': 'WON'})
+    st, mine = call(crm, 'GET', 'targets', staff, query={'month': month})
+    assert st == 200 and len(mine['items']) == 1
+    row = mine['items'][0]
+    assert row['achieved'] == {'revenue': 500.0, 'wonLeads': 1} and row['revenuePct'] == 50.0 and row['wonPct'] == 50.0
+    st, perf = call(crm, 'GET', 'performance', adm)
+    me = [r for r in perf['items'] if r['userId'] == staff['userId']][0]
+    assert me['won'] == 1 and me['acceptedValue'] == 500.0 and me['quotations'] == 1
+    assert call(crm, 'GET', 'performance', staff)[0] == 403
+
+
+def test_calendar_range_query():
+    staff = make_user('STAFF')
+    for d in ('2030-03-05T10:00', '2030-03-20T10:00', '2030-04-02T10:00'):
+        call(tasks, 'POST', '', staff, {'kind': 'TASK', 'title': d, 'dueAt': d})
+    st, res = call(tasks, 'GET', '', staff, query={'from': '2030-03-01T00:00:00Z', 'to': '2030-03-31T23:59:59Z', 'status': ''})
+    assert st == 200 and [t['title'] for t in res['items']] == ['2030-03-05T10:00', '2030-03-20T10:00']

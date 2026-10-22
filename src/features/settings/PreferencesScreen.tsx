@@ -101,7 +101,7 @@ export const PreferencesScreen = () => {
       <Section title="Notification preferences">
         {Object.keys(NOTIF_LABELS).filter(k => role !== 'FARMER' || k !== 'crmTasks').map(k => (
           <SwitchRow key={k} label={NOTIF_LABELS[k]} value={prefs[k] !== false}
-                     description={k === 'push' ? 'Push delivery is not configured yet; in-app always works.' : undefined}
+                     description={k === 'push' ? (data.pushDevices ? `Registered on ${data.pushDevices} device(s)` : 'No device registered yet — allow notifications on your phone') : undefined}
                      onChange={v => set('notificationPrefs')({ ...prefs, [k]: v })} />
         ))}
       </Section>

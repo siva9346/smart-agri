@@ -9,7 +9,7 @@ import { AlertTriangle, Trash2 } from 'lucide-react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../theme';
 import { api } from '../../services/api';
 import { LoadingState } from '../../components/States';
-import { logout } from '../../store/authSlice';
+import { signOut } from '../../store/authActions';
 import { AppDispatch } from '../../store';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -148,7 +148,7 @@ export const ProfileScreen = () => {
       Alert.alert(
         'Account Deletion Requested',
         'Your account has been scheduled for permanent deletion. You will now be signed out.',
-        [{ text: 'OK', onPress: () => dispatch(logout()) }]
+        [{ text: 'OK', onPress: () => dispatch(signOut() as any) }]
       );
     } catch (err: any) {
       Alert.alert('Error', err?.message ?? 'Failed to request account deletion. Please try again.');

@@ -7,6 +7,7 @@ import {
 import { crmApi, teamApi, LeadDetail, LEAD_STAGES, Activity } from '../../services/platform';
 import { useApi, useAuth } from '../../hooks/useApi';
 import { AiAssistPanel } from '../ai/AiAssistPanel';
+import { useWhatsAppEnabled } from '../../hooks/useWhatsApp';
 import {
   Page, Section, KeyValue, StatusTag, Tag, Button, Row, ActionTile, ListRow, Sheet, Field, Input, Select, Segmented,
   DateTimeField, SwitchRow, Loading, ErrorView, Empty, formatDate, formatMoney, humanize, timeAgo, toast,
@@ -209,7 +210,11 @@ const ActivityRow = ({ a }: { a: Activity }) => (
       {a.type === 'CALL' && a.data?.outcome && a.data.outcome !== 'DIALER_OPENED' && (
         <Text style={TYPE.caption}>Outcome reported by user{a.data.durationSec ? ` · ${Math.round(a.data.durationSec / 60)} min` : ''}</Text>
       )}
-      {a.type === 'WHATSAPP' && <Text style={TYPE.caption}>Delivery not tracked (opened WhatsApp click-to-chat)</Text>}
+      {a.type === 'WHATSAPP' && a.data?.direction !== 'INBOUND' && (a.data?.channel === 'CLOUD_API'
+        ? <Text style={[TYPE.caption, a.data?.deliveryStatus === 'FAILED' && { color: TOKENS.colorError }]}>
+            WhatsApp Business · {humanize(a.data?.deliveryStatus ?? 'ACCEPTED')}{a.data?.error ? ` — ${a.data.error}` : ''}</Text>
+        : <Text style={TYPE.caption}>Delivery not tracked (opened WhatsApp click-to-chat)</Text>)}
+      {a.data?.direction === 'INBOUND' && <Text style={TYPE.caption}>Received on WhatsApp Business</Text>}
     </View>
   </View>
 );
@@ -255,30 +260,39 @@ const CallSheet = ({ visible, leadId, onClose, onSaved }: { visible: boolean; le
 const WhatsAppSheet = ({ visible, lead, onClose, onSent }: { visible: boolean; lead: LeadDetail; onClose: () => void; onSent: () => void }) => {
   const [kind, setKind] = useState('GREETING');
   const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
+  const [sending, setSending] = useState<string | null>(null);
+  const apiEnabled = useWhatsAppEnabled();
   const kinds = WA_KINDS.filter(k => k.value !== 'CONSULTATION_SUMMARY' || lead.consultationId);
-  const send = async () => {
-    setSending(true);
+  const send = async (viaApi = false) => {
+    setSending(viaApi ? 'api' : 'link');
     try {
-      const res = await crmApi.whatsapp(lead.leadId, kind, kind === 'CUSTOM' ? text : undefined);
-      await Linking.openURL(res.url);
+      const res = await crmApi.whatsapp(lead.leadId, kind, kind === 'CUSTOM' ? text : undefined, viaApi);
+      if (viaApi) toast('Sent via WhatsApp Business — delivery status will update on the lead');
+      else if (res.url) await Linking.openURL(res.url);
       onSent();
     } catch (e: any) {
       toast(e.message ?? 'Could not open WhatsApp', 'error');
     } finally {
-      setSending(false);
+      setSending(null);
     }
   };
+  const blocked = kind === 'CUSTOM' && !text.trim();
   return (
     <Sheet visible={visible} onClose={onClose} title={`WhatsApp ${lead.customerName}`}
-           footer={<Button title="Open WhatsApp" type="primary" block icon={MessageCircle} loading={sending}
-                           disabled={kind === 'CUSTOM' && !text.trim()} onPress={send} />}>
+           footer={<View style={{ gap: 8 }}>
+             {apiEnabled && <Button title="Send via WhatsApp Business" type="primary" block icon={MessageCircle} loading={sending === 'api'}
+                                    disabled={blocked || !!sending} onPress={() => send(true)} />}
+             <Button title="Open WhatsApp" type={apiEnabled ? 'default' : 'primary'} block icon={MessageCircle} loading={sending === 'link'}
+                     disabled={blocked || !!sending} onPress={() => send(false)} />
+           </View>}>
       <View style={{ gap: 12 }}>
         <Field label="Message">
           <Select value={kind} onChange={setKind} options={kinds} title="Message type" />
         </Field>
         {kind === 'CUSTOM' && <Input value={text} onChangeText={setText} multiline placeholder="Type your message" />}
-        <Text style={TYPE.caption}>The message is prepared from this lead's real data and opens in WhatsApp for you to send. Delivery is not tracked.</Text>
+        <Text style={TYPE.caption}>{apiEnabled
+          ? 'Business API: sent directly with delivery/read tracking (needs an approved template if the customer has not messaged in 24h). Open WhatsApp: you send it yourself, not tracked.'
+          : "The message is prepared from this lead's real data and opens in WhatsApp for you to send. Delivery is not tracked."}</Text>
       </View>
     </Sheet>
   );

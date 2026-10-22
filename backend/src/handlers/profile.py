@@ -50,11 +50,31 @@ def _route(event, m, seg):
         if m == 'PUT': return _update(event)
     if seg == ['photo'] and m == 'POST':
         return _photo(event)
+    if seg == ['push-token'] and m == 'POST':
+        return _push_token(event, add=True)
+    if seg == ['push-token', 'remove'] and m == 'POST':
+        return _push_token(event, add=False)
     return None
+
+
+def _push_token(event, add: bool):
+    from lib.push import is_expo_token, MAX_TOKENS_PER_USER
+    actor = require_actor(event)
+    body = parse_body(event)
+    token = clean_str(body, 'token', 200, required=True)
+    if not is_expo_token(token):
+        raise HttpError(400, 'invalid Expo push token')
+    tokens = [t for t in actor.get('pushTokens', []) if t.get('token') != token]
+    if add:
+        platform = clean_str(body, 'platform', 20) or 'unknown'
+        tokens = (tokens + [{'token': token, 'platform': platform, 'registeredAt': now_iso()}])[-MAX_TOKENS_PER_USER:]
+    update_item(table('users'), {'userId': actor['userId']}, {'pushTokens': tokens})
+    return ok({'registered': add, 'devices': len(tokens)})
 
 
 def _present(user: dict) -> dict:
     out = safe_user(user)
+    out['pushDevices'] = len(out.pop('pushTokens', []) or [])
     out['permissions'] = sorted(permissions_for(user['role']))
     out.setdefault('notificationPrefs', {'inApp': True, 'push': True, 'whatsapp': True,
                                          **{c: True for c in NOTIFICATION_CATEGORIES}})

@@ -161,7 +161,7 @@ def _create(event):
         'actionLink': clean_str(body, 'actionLink', 300) or None,
         'startsAt': starts, 'expiresAt': expires,
         'channels': channels,
-        'channelStatus': {'IN_APP': 'QUEUED', **({'PUSH': 'NOT_CONFIGURED'} if 'PUSH' in channels else {})},
+        'channelStatus': {'IN_APP': 'QUEUED', **({'PUSH': 'QUEUED'} if 'PUSH' in channels else {})},
         'isActive': True, 'deliveryStatus': 'QUEUED',
         'createdBy': actor['userId'], 'createdByName': actor.get('name', ''), 'createdByRole': actor['role'],
         'createdAt': now, 'updatedAt': now,
@@ -206,12 +206,15 @@ def _fanout(notif_id: str):
     if not notif or notif.get('deliveryStatus') not in ('QUEUED', 'FAILED'):
         return {'skipped': True}
     try:
-        count = write_recipients(_recipients(notif), notif)
-        tbl.update_item(
-            Key={'notifId': notif_id},
-            UpdateExpression='SET deliveryStatus = :s, recipientCount = :c, channelStatus.IN_APP = :s, fannedOutAt = :t',
-            ExpressionAttributeValues={':s': 'COMPLETED', ':c': count, ':t': now_iso()},
-        )
+        wants_push = 'PUSH' in notif.get('channels', [])
+        count = write_recipients(_recipients(notif), notif, push=wants_push)
+        expr = 'SET deliveryStatus = :s, recipientCount = :c, channelStatus.IN_APP = :s, fannedOutAt = :t'
+        values = {':s': 'COMPLETED', ':c': count, ':t': now_iso()}
+        if wants_push:
+            # Scheduled pushes are not sent at fan-out time; recorded so admins aren't misled.
+            expr += ', channelStatus.PUSH = :p'
+            values[':p'] = 'SENT' if is_started(notif) else 'NOT_SENT_SCHEDULED'
+        tbl.update_item(Key={'notifId': notif_id}, UpdateExpression=expr, ExpressionAttributeValues=values)
         return {'recipients': count}
     except Exception as e:
         print(f'fan-out failed for {notif_id}: {e}')
@@ -234,7 +237,7 @@ def _stats(event, notif_id):
     if not notif:
         raise HttpError(404, 'Notification not found')
     recs = query_all(table('inbox'), IndexName='NotifIndex', KeyConditionExpression=Key('notifId').eq(notif_id),
-                     ProjectionExpression='isRead, isDismissed, deliveredAt')
+                     ProjectionExpression='isRead, isDismissed, deliveredAt, pushStatus')
     return ok({
         'notifId': notif_id,
         'deliveryStatus': notif.get('deliveryStatus'),
@@ -243,6 +246,8 @@ def _stats(event, notif_id):
         'delivered': sum(1 for r in recs if r.get('deliveredAt')),
         'read': sum(1 for r in recs if r.get('isRead')),
         'dismissed': sum(1 for r in recs if r.get('isDismissed')),
+        'push': {s: sum(1 for r in recs if r.get('pushStatus') == s)
+                 for s in ('NO_DEVICE', 'SENT_TO_EXPO', 'DELIVERED_TO_OS', 'FAILED')},
     })
 
 

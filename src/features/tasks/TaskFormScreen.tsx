@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text } from 'react-native';
-import { CheckCircle, ExternalLink } from 'lucide-react-native';
+import { CheckCircle, ExternalLink, MapPin } from 'lucide-react-native';
+import * as Location from 'expo-location';
 import { taskApi, teamApi, Task, PRIORITIES } from '../../services/platform';
 import { useApi, useAuth } from '../../hooks/useApi';
 import {
@@ -9,7 +10,8 @@ import {
 } from '../../ui';
 import { TOKENS, TYPE } from '../../theme';
 
-const KINDS = [{ label: 'Follow-up', value: 'FOLLOW_UP' }, { label: 'Appointment', value: 'APPOINTMENT' }, { label: 'Task', value: 'TASK' }];
+const KINDS = [{ label: 'Follow-up', value: 'FOLLOW_UP' }, { label: 'Appointment', value: 'APPOINTMENT' },
+               { label: 'Field visit', value: 'FIELD_VISIT' }, { label: 'Task', value: 'TASK' }];
 const FOLLOW_TYPES = ['CALL', 'WHATSAPP', 'VISIT', 'MEETING', 'OTHER'].map(v => ({ label: humanize(v), value: v }));
 const METHODS = ['IN_PERSON', 'PHONE', 'VIDEO', 'FIELD_VISIT'].map(v => ({ label: humanize(v), value: v }));
 const REMINDERS = [{ label: 'None', value: '-1' }, { label: '15 min', value: '15' }, { label: '1 hour', value: '60' }, { label: '1 day', value: '1440' }];
@@ -23,8 +25,9 @@ export const TaskFormScreen = ({ navigation, route }: any) => {
   const [form, setForm] = useState({
     kind: route.params?.kind ?? 'FOLLOW_UP', title: customerName ? `Follow up with ${customerName}` : '', description: '',
     priority: 'MEDIUM', followUpType: 'CALL', meetingMethod: 'IN_PERSON', consultationType: '', location: '', notes: '',
-    assigneeId: '', reminderMinutes: '60',
+    assigneeId: '', reminderMinutes: '60', purpose: '', visitReport: '',
   });
+  const [checkingIn, setCheckingIn] = useState(false);
   const [dueAt, setDueAt] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [completing, setCompleting] = useState<'COMPLETED' | 'NO_SHOW' | 'CANCELLED' | null>(null);
@@ -37,7 +40,7 @@ export const TaskFormScreen = ({ navigation, route }: any) => {
       setTask(t);
       setForm(f => ({ ...f, kind: t.kind, title: t.title, description: t.description ?? '', priority: t.priority,
                       followUpType: t.followUpType ?? 'CALL', meetingMethod: t.meetingMethod ?? 'IN_PERSON',
-                      location: t.location ?? '', notes: t.notes ?? '' }));
+                      location: t.location ?? '', notes: t.notes ?? '', purpose: t.purpose ?? '', visitReport: t.visitReport ?? '' }));
       setDueAt(t.dueAt);
       navigation.setOptions({ title: humanize(t.kind) });
     }).catch(e => toast(e.message, 'error')).finally(() => setLoading(false));
@@ -59,6 +62,7 @@ export const TaskFormScreen = ({ navigation, route }: any) => {
       if (task) {
         const updated = await taskApi.update(task.taskId, {
           title: form.title, description: form.description, priority: form.priority, notes: form.notes, location: form.location,
+          ...(task.kind === 'FIELD_VISIT' ? { visitReport: form.visitReport } : {}),
           dueAt: dueAt !== task.dueAt ? dueAt : undefined,
           assigneeId: form.assigneeId && form.assigneeId !== task.assigneeId ? form.assigneeId : undefined,
         });
@@ -84,6 +88,22 @@ export const TaskFormScreen = ({ navigation, route }: any) => {
       toast(`Marked ${humanize(status).toLowerCase()}`);
     } catch (e: any) {
       toast(e.message, 'error');
+    }
+  };
+
+  const checkIn = async () => {
+    if (!task) return;
+    setCheckingIn(true);
+    try {
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (perm.status !== 'granted') throw new Error('Location permission is needed to check in');
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setTask(await taskApi.update(task.taskId, { checkIn: { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy } }));
+      toast('Checked in at the farm');
+    } catch (e: any) {
+      toast(e.message ?? 'Could not get your location', 'error');
+    } finally {
+      setCheckingIn(false);
     }
   };
 
@@ -118,6 +138,13 @@ export const TaskFormScreen = ({ navigation, route }: any) => {
         {form.kind === 'FOLLOW_UP' && !task && (
           <Field label="Follow-up by"><Segmented value={form.followUpType} options={FOLLOW_TYPES} onChange={set('followUpType')} /></Field>
         )}
+        {form.kind === 'FIELD_VISIT' && (
+          <>
+            <Field label="Farm / location"><Input value={form.location} onChangeText={set('location')} editable={!readOnly} placeholder="Village, field name" /></Field>
+            {!task && <Field label="Purpose"><Input value={form.purpose} onChangeText={set('purpose')} placeholder="e.g. Soil sampling, pest inspection" /></Field>}
+            {!!task?.purpose && <KeyValue label="Purpose" value={task.purpose} />}
+          </>
+        )}
         {form.kind === 'APPOINTMENT' && (
           <>
             {!task && <Field label="Meeting method"><Segmented value={form.meetingMethod} options={METHODS} onChange={set('meetingMethod')} /></Field>}
@@ -136,6 +163,18 @@ export const TaskFormScreen = ({ navigation, route }: any) => {
         )}
       </Section>
 
+      {task?.kind === 'FIELD_VISIT' && (
+        <Section title="Field visit">
+          {(task.checkIns ?? []).map((c, i) => (
+            <KeyValue key={i} label={i ? 'Check-in' : 'Checked in'}
+                      value={`${formatDate(c.at)} · ${Number(c.lat).toFixed(5)}, ${Number(c.lng).toFixed(5)}${c.accuracyM ? ` (±${Math.round(c.accuracyM)} m)` : ''}`} />
+          ))}
+          {!readOnly && <Button title={task.checkIns?.length ? 'Check in again' : 'Check in at the farm'} icon={MapPin} loading={checkingIn} onPress={checkIn} />}
+          <Field label="Visit report" help="Observations, samples taken, advice given">
+            <Input value={form.visitReport} onChangeText={set('visitReport')} multiline editable={!readOnly} style={{ minHeight: 110 }} />
+          </Field>
+        </Section>
+      )}
       {!readOnly && <Button title={task ? 'Save changes' : 'Schedule'} type="primary" block loading={saving} onPress={save} />}
       {task?.status === 'OPEN' && (
         <View style={{ gap: 8 }}>

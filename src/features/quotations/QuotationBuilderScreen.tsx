@@ -171,7 +171,7 @@ export const QuotationBuilderScreen = ({ navigation, route }: any) => {
                   </TouchableOpacity>
                 </Row>
                 <Text style={TYPE.caption}>{formatMoney(p?.price)} / {p?.unit} · {p?.stock ?? 0} in stock</Text>
-                <Row gap={10}>
+                <Row gap={10} style={{ alignItems: 'flex-start' }}>
                   <View style={{ flex: 1 }}><Field label={`Quantity (${p?.unit ?? ''})`}>
                     <Input value={l.quantity} onChangeText={v => update(l.productId, { quantity: v.replace(/[^0-9.]/g, '') })} keyboardType="decimal-pad" />
                   </Field></View>
@@ -209,7 +209,7 @@ export const QuotationBuilderScreen = ({ navigation, route }: any) => {
         )}
 
         <Section title="Charges & terms">
-          <Row gap={10}>
+          <Row gap={10} style={{ alignItems: 'flex-start' }}>
             <View style={{ flex: 1 }}><Field label="Delivery charge (₹)"><Input value={delivery} onChangeText={v => setDelivery(v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" /></Field></View>
             <View style={{ flex: 1 }}><Field label="Valid for (days)" help="Default from settings"><Input value={validity} onChangeText={v => setValidity(v.replace(/\D/g, ''))} keyboardType="number-pad" /></Field></View>
           </Row>

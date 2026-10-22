@@ -20,7 +20,7 @@ if [ -z "$API_URL" ] || [ "$API_URL" = "None" ]; then
 fi
 
 CONFIG_FILE="$(cd "$(dirname "$0")/.." && pwd)/src/config.ts"
-sed -i.bak "s#^export const API_BASE_URL = .*#export const API_BASE_URL = '${API_URL}';#" "$CONFIG_FILE"
+sed -i.bak "s#^export const API_BASE_URL = .*#export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || '${API_URL}';#" "$CONFIG_FILE"
 rm -f "${CONFIG_FILE}.bak"
 
 echo "Updated src/config.ts -> $API_URL"

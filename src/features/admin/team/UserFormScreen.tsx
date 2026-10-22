@@ -88,7 +88,7 @@ export const UserFormScreen = ({ navigation, route }: any) => {
       </Section>
 
       <Section title="Responsibilities">
-        <Row gap={10}>
+        <Row gap={10} style={{ alignItems: 'flex-start' }}>
           <View style={{ flex: 1 }}><Field label="Department"><Input value={form.department ?? ''} onChangeText={set('department')} /></Field></View>
           <View style={{ flex: 1 }}><Field label="Job title"><Input value={form.jobTitle ?? ''} onChangeText={set('jobTitle')} /></Field></View>
         </Row>
@@ -112,7 +112,7 @@ export const UserFormScreen = ({ navigation, route }: any) => {
               ))}
             </Row>
           </Field>
-          <Row gap={10}>
+          <Row gap={10} style={{ alignItems: 'flex-start' }}>
             <View style={{ flex: 1 }}><Field label="Max active consultations"><Input value={form.maxActiveConsultations} onChangeText={set('maxActiveConsultations')} keyboardType="number-pad" placeholder="Default" /></Field></View>
             <View style={{ flex: 1 }}><Field label="Experience (years)"><Input value={form.experienceYears} onChangeText={set('experienceYears')} keyboardType="number-pad" /></Field></View>
           </Row>

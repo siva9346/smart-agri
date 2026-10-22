@@ -58,7 +58,8 @@ export interface Activity {
   createdAt: string; data?: Record<string, any>;
 }
 export interface Task {
-  taskId: string; kind: 'FOLLOW_UP' | 'APPOINTMENT' | 'TASK'; title: string; description?: string; assigneeId: string;
+  taskId: string; kind: 'FOLLOW_UP' | 'APPOINTMENT' | 'TASK' | 'FIELD_VISIT'; purpose?: string; visitReport?: string;
+  checkIns?: { at: string; lat: number; lng: number; accuracyM?: number }[]; title: string; description?: string; assigneeId: string;
   assigneeName: string; dueAt: string; priority: string; status: string; leadId?: string; consultationId?: string;
   customerId?: string; customerName?: string; followUpType?: string; meetingMethod?: string; location?: string;
   notes?: string; outcome?: string; isOverdue?: boolean; history?: { at: string; by: string; event: string }[];
@@ -101,8 +102,13 @@ export const crmApi = {
   note: (id: string, text: string) => api.post<Activity>(`/crm/leads/${id}/notes`, { text }),
   call: (id: string, body: { outcome: string; notes?: string; durationSec?: number; nextFollowUpAt?: string | null }) =>
     api.post<Activity>(`/crm/leads/${id}/calls`, body),
-  whatsapp: (id: string, kind: string, text?: string) => api.post<{ url: string; text: string }>(`/crm/leads/${id}/whatsapp`, { kind, text }),
+  whatsapp: (id: string, kind: string, text?: string, send = false) =>
+    api.post<{ url?: string; text: string; sent?: boolean }>(`/crm/leads/${id}/whatsapp`, { kind, text, send }),
   customer: (customerId: string) => api.get<any>(`/crm/customers/${customerId}`),
+  dailyReport: (date?: string, userId?: string) => api.get<any>(`/crm/daily-report${qs({ date, userId })}`),
+  performance: (days = 30) => api.get<{ days: number; since: string; items: any[] }>(`/crm/performance${qs({ days })}`),
+  targets: (month?: string) => api.get<{ month: string; items: any[]; note: string }>(`/crm/targets${qs({ month })}`),
+  setTarget: (body: { month: string; userId: string; revenue: number; wonLeads: number }) => api.put<any>('/crm/targets', body),
 };
 
 // ── Quotations ───────────────────────────────────────────────────────────────
@@ -132,7 +138,7 @@ export const quotationApi = {
   submit: (id: string) => api.post<Quotation>(`/quotations/${id}/submit`, {}),
   approve: (id: string, note?: string) => api.post<Quotation>(`/quotations/${id}/approve`, { note }),
   reject: (id: string, reason: string) => api.post<Quotation>(`/quotations/${id}/reject`, { reason }),
-  share: (id: string, channel: 'WHATSAPP' | 'IN_APP') =>
+  share: (id: string, channel: 'WHATSAPP' | 'WHATSAPP_API' | 'IN_APP') =>
     api.post<{ quotation: Quotation; text: string; url?: string }>(`/quotations/${id}/share`, { channel }),
   respond: (id: string, decision: 'ACCEPT' | 'REJECT', comment?: string) =>
     api.post<Quotation>(`/quotations/${id}/respond`, { decision, comment }),
@@ -143,7 +149,7 @@ export const quotationApi = {
 // ── Tasks ────────────────────────────────────────────────────────────────────
 
 export const taskApi = {
-  list: (p: { scope?: string; kind?: string; status?: string; leadId?: string; overdue?: string }, cursor?: string) =>
+  list: (p: { scope?: string; kind?: string; status?: string; leadId?: string; overdue?: string; from?: string; to?: string }, cursor?: string) =>
     api.get<Page<Task>>(`/tasks${qs({ ...p, cursor })}`),
   get: (id: string) => api.get<Task>(`/tasks/${id}`),
   create: (body: object) => api.post<Task>('/tasks', body),
@@ -168,7 +174,7 @@ export const inboxApi = {
 export const announcementApi = {
   list: (cursor?: string) => api.get<Page<any>>(`/notifications${qs({ cursor })}`),
   create: (body: object) => api.post<any>('/notifications', body),
-  stats: (id: string) => api.get<{ recipients: number; delivered: number; read: number; dismissed: number; deliveryStatus: string; channelStatus: Record<string, string> }>(`/notifications/${id}/stats`),
+  stats: (id: string) => api.get<{ recipients: number; delivered: number; read: number; dismissed: number; deliveryStatus: string; channelStatus: Record<string, string>; push?: Record<string, number> }>(`/notifications/${id}/stats`),
   remove: (id: string) => api.delete(`/notifications/${id}`),
 };
 
@@ -225,4 +231,13 @@ export const adminApi = {
 export const productApi = {
   list: (cursor?: string) => api.get<Page<{ productId: string; name: string; price: number; unit: string; stock: number;
                                             category: string; description: string; imageUrl?: string; isActive: boolean }>>(`/products${qs({ cursor })}`),
+};
+
+// ── WhatsApp Business ───────────────────────────────────────────────────────
+
+export const whatsappApi = {
+  status: () => api.get<{ enabled: boolean }>('/whatsapp/status'),
+  config: () => api.get<any>('/whatsapp/config'),
+  saveConfig: (body: object) => api.put<any>('/whatsapp/config', body),
+  test: (to: string) => api.post<{ ok: boolean; error?: string; messageId?: string; note?: string }>('/whatsapp/test', { to }),
 };

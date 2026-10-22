@@ -243,10 +243,10 @@ export const ConsultationDetailScreen = ({ navigation, route }: any) => {
         </Pressable>
       </Modal>
 
-      <RecommendationSheet visible={recOpen} onClose={() => setRecOpen(false)} consultation={c}
-                           onSaved={updated => { setData(updated); setRecOpen(false); toast('Recommendation sent to the customer'); }} />
-      <AssignSheet visible={assignOpen} onClose={() => setAssignOpen(false)} consultation={c}
-                   onSaved={updated => { setData(updated); setAssignOpen(false); toast(`Assigned to ${updated.expertName}`); }} />
+      {actorCanAct && <RecommendationSheet visible={recOpen} onClose={() => setRecOpen(false)} consultation={c}
+                           onSaved={updated => { setData(updated); setRecOpen(false); toast('Recommendation sent to the customer'); }} />}
+      {isAdmin && <AssignSheet visible={assignOpen} onClose={() => setAssignOpen(false)} consultation={c}
+                   onSaved={updated => { setData(updated); setAssignOpen(false); toast(`Assigned to ${updated.expertName}`); }} />}
       <ConfirmDialog visible={!!confirm} title={confirm?.title ?? ''} message={confirm?.message} danger={confirm?.danger}
                      confirmText="Yes" loading={!!busy}
                      onCancel={() => setConfirm(null)}

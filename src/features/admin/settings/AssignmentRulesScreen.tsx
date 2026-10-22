@@ -95,7 +95,7 @@ export const AssignmentRulesScreen = () => {
                      help="Problem types: pest, disease, nutrient, soil, irrigation, weed, growth, other" />
       <Section title="Rules">
         <Field label="General specialization keyword"><Input value={general} onChangeText={setGeneral} editable={!readOnly} /></Field>
-        <Row gap={10}>
+        <Row gap={10} style={{ alignItems: 'flex-start' }}>
           <View style={{ flex: 1 }}><Field label="Default capacity per expert"><Input value={cap} onChangeText={setCap} keyboardType="number-pad" editable={!readOnly} /></Field></View>
           <View style={{ flex: 1 }}><Field label="Escalate after (hours)"><Input value={escalate} onChangeText={setEscalate} keyboardType="number-pad" editable={!readOnly} /></Field></View>
         </Row>
