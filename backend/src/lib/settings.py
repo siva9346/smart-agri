@@ -108,6 +108,37 @@ DEFAULTS = {
         },
         'requestsPerMinutePerUser': 10,
     },
+
+    # Configurable automation rules (predefined, validated trigger/action pairs —
+    # see lib.automation). Admins can only toggle `enabled` and the listed
+    # parameters per rule; the trigger/action logic itself is fixed code.
+    'automationRules': {
+        'UNASSIGNED_CONSULTATION_ESCALATION': {
+            'enabled': True,
+            'label': 'Unassigned consultation escalation',
+            'description': 'Notify Admins when a consultation has waited past the assignment escalation window '
+                            '(configured under Assignment settings).',
+        },
+        'FOLLOWUP_OVERDUE_REMINDER': {
+            'enabled': True,
+            'label': 'Follow-up reminder',
+            'description': 'Notify the assignee when a task or appointment reminder becomes due.',
+        },
+        'QUOTATION_FOLLOWUP': {
+            'enabled': True,
+            'label': 'Quotation follow-up',
+            'description': 'When a shared quotation sits unanswered, create a follow-up task and draft a '
+                            'suggested message for a staff member to approve before sending.',
+            'followUpAfterHours': 48,
+            'requiresApproval': True,
+        },
+        'AI_PROVIDER_FAILURE_ALERT': {
+            'enabled': True,
+            'label': 'AI provider failure alert',
+            'description': "Notify Admins once a day when an enabled AI provider's error count crosses the threshold.",
+            'failureThreshold': 3,
+        },
+    },
 }
 
 _cache: dict = {}

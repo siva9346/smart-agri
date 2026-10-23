@@ -27,6 +27,7 @@ TABLES = {
     'inbox':         os.environ['INBOX_TABLE'],
     'settings':      os.environ['SETTINGS_TABLE'],
     'audit':         os.environ['AUDIT_TABLE'],
+    'automation_runs': os.environ['AUTOMATION_RUNS_TABLE'],
 }
 
 

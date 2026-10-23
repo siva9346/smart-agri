@@ -54,6 +54,7 @@ ENV_FOR_TABLE = {
     'SymptomsTable': 'SYMPTOMS_TABLE', 'ConsultationsTable': 'CONSULTATIONS_TABLE', 'LeadsTable': 'LEADS_TABLE',
     'LeadActivitiesTable': 'LEAD_ACTIVITIES_TABLE', 'QuotationsTable': 'QUOTATIONS_TABLE', 'TasksTable': 'TASKS_TABLE',
     'InboxTable': 'INBOX_TABLE', 'SettingsTable': 'SETTINGS_TABLE', 'AuditTable': 'AUDIT_TABLE',
+    'AutomationRunsTable': 'AUTOMATION_RUNS_TABLE',
 }
 for logical, env in ENV_FOR_TABLE.items():
     os.environ[env] = TABLE_DEFS[logical]['TableName']

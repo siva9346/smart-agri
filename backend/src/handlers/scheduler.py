@@ -8,6 +8,7 @@ EventBridge job (every 15 minutes):
 """
 from boto3.dynamodb.conditions import Key, Attr
 
+from lib import automation
 from lib.db import table
 from lib.settings import get_setting
 from lib.assignment import auto_assign
@@ -22,6 +23,8 @@ def handler(_event, _ctx):
         'expiredQuotations': _expire_quotations(),
         'scheduledPushes': _scheduled_pushes(),
         'pushReceipts': _push_receipts(),
+        'quotationFollowUps': automation.run_quotation_followups(),
+        'aiProviderAlerts': automation.run_ai_provider_alert(),
     }
 
 
@@ -55,6 +58,8 @@ def _push_receipts() -> int:
 
 
 def _reminders() -> int:
+    if not automation.is_enabled('FOLLOWUP_OVERDUE_REMINDER'):
+        return 0
     due = query_all(table('tasks'), IndexName='ReminderIndex',
                     KeyConditionExpression=Key('reminderPending').eq('Y') & Key('reminderAt').lte(now_iso()))
     sent = 0
@@ -73,11 +78,14 @@ def _reminders() -> int:
                      f"task/{t['taskId']}", 'HIGH' if t.get('priority') in ('HIGH', 'URGENT') else 'NORMAL')
         if t['kind'] == 'APPOINTMENT' and t.get('customerId'):
             notify_users([t['customerId']], 'Upcoming appointment', f"{t['title']} at {t['dueAt']}", 'REMINDER')
+        automation.reminder_fired(t['taskId'], f"{label} '{t['title']}' due {t['dueAt']}")
         sent += 1
     return sent
 
 
 def _escalations() -> int:
+    if not automation.is_enabled('UNASSIGNED_CONSULTATION_ESCALATION'):
+        return 0
     cfg = get_setting('assignment')
     cutoff = iso_in(-int(cfg['escalateAfterHours']) * 3600)
     count = 0
@@ -97,9 +105,9 @@ def _escalations() -> int:
                     print(f"retry assign failed {c['consultationId']}: {e}")
             update_item(table('consultations'), {'consultationId': c['consultationId']}, {'escalatedAt': now_iso()})
             who = f" (assigned to {c.get('expertName')}, not accepted)" if status == 'ASSIGNED' else ''
-            notify_roles(['ADMIN', 'SUPER_ADMIN'], 'Overdue consultation',
-                         f"{c.get('customerName')} — {c['cropName']} has waited over {cfg['escalateAfterHours']}h{who}.",
-                         'ESCALATION', f"consultation/{c['consultationId']}")
+            detail = f"{c.get('customerName')} — {c['cropName']} has waited over {cfg['escalateAfterHours']}h{who}."
+            notify_roles(['ADMIN', 'SUPER_ADMIN'], 'Overdue consultation', detail, 'ESCALATION', f"consultation/{c['consultationId']}")
+            automation.escalation_fired(c['consultationId'], status, detail)
             count += 1
     return count
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { Text, View } from 'react-native';
 import {
   User, SlidersHorizontal, Lock, Bell, Megaphone, Sparkles, Users, ShieldCheck, Stethoscope, GitBranch, FileText,
-  ScrollText, LogOut, MessagesSquare,
+  ScrollText, LogOut, MessagesSquare, Zap,
 } from 'lucide-react-native';
 import { useDispatch } from 'react-redux';
 import { signOut } from '../../store/authActions';
@@ -71,6 +71,8 @@ export const SettingsScreen = ({ navigation }: any) => {
             {can('consultation.assign') && <ListRow left={<Icon icon={Stethoscope} />} title="Expert specializations & workload" onPress={go('ExpertCoverage')} />}
             {(can('settings.assignment') || can('users.manage')) && <ListRow left={<Icon icon={GitBranch} />} title="Assignment rules" onPress={go('AssignmentRules')} />}
             {(can('settings.quotation') || can('users.manage')) && <ListRow left={<Icon icon={FileText} />} title="Quotation settings" subtitle="Tax, discounts, approval, terms" onPress={go('QuotationSettings')} />}
+            {can('automation.manage') && <ListRow left={<Icon icon={Zap} color={TOKENS.colorWarning} />} title="Automation rules"
+                     subtitle="Escalation, reminders, quotation follow-up, AI alerts" onPress={go('AutomationRules')} />}
             {can('audit.view') && <ListRow left={<Icon icon={ScrollText} />} title="Audit logs" onPress={go('AuditLog')} />}
           </View>
         </Section>

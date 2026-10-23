@@ -233,6 +233,26 @@ export const productApi = {
                                             category: string; description: string; imageUrl?: string; isActive: boolean }>>(`/products${qs({ cursor })}`),
 };
 
+// ── Automation rule builder ──────────────────────────────────────────────────
+
+export interface AutomationRule {
+  enabled: boolean; label: string; description: string;
+  followUpAfterHours?: number; requiresApproval?: boolean; failureThreshold?: number;
+}
+export interface AutomationRun {
+  runId: string; ruleId: string; targetType: string; targetId: string; period: string;
+  status: 'SUCCESS' | 'FAILED' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+  detail: string; createdAt: string; attempts: number; payload?: { suggestedMessage?: string; quotationNumber?: string };
+}
+export const automationApi = {
+  rules: () => api.get<{ rules: Record<string, AutomationRule> }>('/automation/rules'),
+  updateRule: (ruleId: string, body: object) => api.put<AutomationRule>(`/automation/rules/${ruleId}`, body),
+  runs: (p: { ruleId?: string; status?: string } = {}) => api.get<{ items: AutomationRun[] }>(`/automation/runs${qs(p)}`),
+  retry: (runId: string) => api.post<AutomationRun>(`/automation/runs/${runId}/retry`, {}),
+  approve: (runId: string) => api.post<AutomationRun>(`/automation/runs/${runId}/approve`, {}),
+  reject: (runId: string) => api.post<AutomationRun>(`/automation/runs/${runId}/reject`, {}),
+};
+
 // ── WhatsApp Business ───────────────────────────────────────────────────────
 
 export const whatsappApi = {

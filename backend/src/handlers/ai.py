@@ -243,6 +243,9 @@ def _record_usage(feature: str, provider: str | None, error: bool):
     if error:
         names['#e'] = 'errors'
         expr += ', #e :one'
+        if provider:  # per-provider error count — lib.automation's failure alert needs this, not just the global total
+            names['#pe'] = f'e_{provider}'
+            expr += ', #pe :one'
     try:
         table('settings').update_item(Key={'settingKey': f'aiUsage#{today()}'}, UpdateExpression=expr,
                                       ExpressionAttributeNames=names, ExpressionAttributeValues=values)

@@ -31,6 +31,7 @@ Globals:
         INBOX_TABLE: !Ref InboxTable
         SETTINGS_TABLE: !Ref SettingsTable
         AUDIT_TABLE: !Ref AuditTable
+        AUTOMATION_RUNS_TABLE: !Ref AutomationRunsTable
         PHOTOS_BUCKET: !Ref RecordPhotosBucket
         AI_KEY_PARAM_PREFIX: /naveena/ai/
         SECRET_PARAM_PREFIX: /naveena/
@@ -301,6 +302,8 @@ Resources:
               - !GetAtt AuditTable.Arn
               - !Sub '${AuditTable.Arn}/index/*'
               - !GetAtt NotificationsTable.Arn
+              - !GetAtt AutomationRunsTable.Arn
+              - !Sub '${AutomationRunsTable.Arn}/index/*'
           - Effect: Allow
             Action: [dynamodb:GetItem, dynamodb:Query, dynamodb:Scan]
             Resource:
@@ -452,6 +455,17 @@ Resources:
       Events:
         Sub:       { Type: HttpApi, Properties: { Path: "/admin/{proxy+}", Method: ANY, ApiId: !Ref Api } }
         Dashboard: { Type: HttpApi, Properties: { Path: /dashboard,        Method: ANY, ApiId: !Ref Api } }
+
+  # ── Automation rule builder (configurable escalation / follow-up / alert rules) ─
+  AutomationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.automation.handler
+      Description: Configurable automation rules (Super Admin / Admin) and their execution history
+      Policies:
+        - !Ref CoreDataPolicy
+      Events:
+        Sub: { Type: HttpApi, Properties: { Path: "/automation/{proxy+}", Method: ANY, ApiId: !Ref Api } }
 
   # ── Reminders, consultation escalation, quotation expiry ─────────────────────
   SchedulerFunction:
@@ -980,6 +994,32 @@ Resources:
           KeySchema:
             - { AttributeName: entityId, KeyType: HASH }
             - { AttributeName: sortKey, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+
+  AutomationRunsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: naveena-automation-runs
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: runId, AttributeType: S }
+        - { AttributeName: ruleId, AttributeType: S }
+        - { AttributeName: status, AttributeType: S }
+        - { AttributeName: createdAt, AttributeType: S }
+      KeySchema:
+        - { AttributeName: runId, KeyType: HASH }
+      GlobalSecondaryIndexes:
+        - IndexName: RuleIndex
+          KeySchema:
+            - { AttributeName: ruleId, KeyType: HASH }
+            - { AttributeName: createdAt, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: StatusIndex
+          KeySchema:
+            - { AttributeName: status, KeyType: HASH }
+            - { AttributeName: createdAt, KeyType: RANGE }
           Projection: { ProjectionType: ALL }
 
 # ─── Outputs ─────────────────────────────────────────────────────────────────

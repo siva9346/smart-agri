@@ -37,6 +37,7 @@ Customers can never receive internal permissions. Deactivated users are blocked 
 | `/whatsapp/*` | WhatsApp Business config, test send, signed Meta webhook |
 | `/crm/daily-report`, `/crm/performance`, `/crm/targets` | Daily report, team performance, sales targets |
 | `/profile/push-token` | Device push registration |
+| `/automation/rules`, `/automation/runs/*` | Automation rule builder — see below |
 
 Existing routes are unchanged except: `POST /auth/login` rejects deactivated accounts and returns `user.permissions`;
 `GET /notifications` now hides announcements not targeted at the caller's role; `POST /notifications` also fans out
@@ -46,7 +47,26 @@ per-user inbox records (old `targetRole` / `INFO|WARNING|ALERT|PROMOTION` payloa
 
 `naveena-consultations`, `naveena-leads`, `naveena-lead-activities`, `naveena-quotations`, `naveena-tasks`,
 `naveena-notification-inbox` (TTL `purgeAt`, 180-day history), `naveena-settings` (TTL `expiresAtEpoch` for rate limits),
-`naveena-audit-log`. `naveena-users` gains a `RoleIndex` GSI (backfilled automatically by DynamoDB on deploy).
+`naveena-audit-log`, `naveena-automation-runs`. `naveena-users` gains a `RoleIndex` GSI (backfilled automatically by
+DynamoDB on deploy).
+
+## Automation rule builder
+
+`Settings → Automation rules` (Super Admin / Admin, permission `automation.manage`) exposes 4 predefined, validated
+automations — there is no general-purpose rule engine, only enable/disable plus a few named parameters per rule,
+evaluated by the existing 15-minute `SchedulerFunction`:
+
+| Rule | Trigger | Action |
+|---|---|---|
+| `UNASSIGNED_CONSULTATION_ESCALATION` | Consultation stuck past `assignment.escalateAfterHours` | Notifies Admins (same job as before; now toggleable + recorded) |
+| `FOLLOWUP_OVERDUE_REMINDER` | Task/appointment reminder due | Notifies the assignee (same job as before; now toggleable + recorded) |
+| `QUOTATION_FOLLOWUP` | Quotation `SHARED`/`VIEWED` unanswered past `followUpAfterHours` (default 48) | Creates a follow-up task for the lead owner and drafts a suggested message — held as `PENDING_APPROVAL` until a Super Admin/Admin approves or rejects it. Nothing is ever sent automatically. |
+| `AI_PROVIDER_FAILURE_ALERT` | An enabled AI provider's error count today ≥ `failureThreshold` (default 3) | Notifies Admins once per provider per day |
+
+Every firing is recorded once via a deterministic, conditionally-written `runId` (rule + target + period) in
+`naveena-automation-runs` (`RuleIndex`, `StatusIndex`) — this is what prevents duplicate execution across scheduler
+ticks. `FAILED` runs can be retried; `PENDING_APPROVAL` runs can be approved (logs a CRM activity with the suggested
+message — still doesn't send anything) or rejected. Rule changes and run approvals are written to the audit log.
 
 ## Environment / secrets
 
@@ -147,7 +167,7 @@ point a build at a staging stack.
 ## Tests
 
 - `backend/tests/` (pytest + moto, real table definitions from `template.yaml`): spec tests 1–16, legacy
-  compatibility, push, WhatsApp (signatures, statuses, inbound, opt-out), field work, reports, targets. CI runs them
-  before every deploy.
+  compatibility, push, WhatsApp (signatures, statuses, inbound, opt-out), field work, reports, targets, automation
+  rules (enable/disable, idempotency, approve/reject, retry). CI runs them before every deploy.
 - `e2e/` (Playwright, Expo web + local API): every screen for every role, plus the full consultation → quotation →
   acceptance flow and the banner/X-dismiss behaviour. See `e2e/README.md`.

@@ -39,6 +39,7 @@ import { UserManagementScreen } from '../features/admin/team/UserManagementScree
 import { UserFormScreen } from '../features/admin/team/UserFormScreen';
 import { ExpertCoverageScreen } from '../features/admin/team/ExpertCoverageScreen';
 import { AssignmentRulesScreen } from '../features/admin/settings/AssignmentRulesScreen';
+import { AutomationRulesScreen } from '../features/admin/settings/AutomationRulesScreen';
 import { QuotationSettingsScreen } from '../features/admin/settings/QuotationSettingsScreen';
 import { RolePermissionsScreen } from '../features/admin/settings/RolePermissionsScreen';
 import { AiConfigScreen } from '../features/admin/settings/AiConfigScreen';
@@ -190,6 +191,7 @@ const sharedScreens = (S: any, internal: boolean) => (
         <S.Screen name="UserForm" component={UserFormScreen} options={{ title: 'Team Member' }} />
         <S.Screen name="ExpertCoverage" component={ExpertCoverageScreen} options={{ title: 'Experts & Coverage' }} />
         <S.Screen name="AssignmentRules" component={AssignmentRulesScreen} options={{ title: 'Assignment Rules' }} />
+        <S.Screen name="AutomationRules" component={AutomationRulesScreen} options={{ title: 'Automation Rules' }} />
         <S.Screen name="QuotationSettings" component={QuotationSettingsScreen} options={{ title: 'Quotation Settings' }} />
         <S.Screen name="RolePermissions" component={RolePermissionsScreen} options={{ title: 'Roles & Permissions' }} />
         <S.Screen name="AiConfig" component={AiConfigScreen} options={{ title: 'AI Configuration' }} />

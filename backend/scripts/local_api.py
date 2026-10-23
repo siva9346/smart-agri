@@ -36,6 +36,7 @@ ROUTES = {
     'enquiries': 'enquiries', 'symptoms': 'symptoms', 'consultations': 'consultations', 'crm': 'crm',
     'quotations': 'quotations', 'tasks': 'tasks', 'users': 'users', 'profile': 'profile', 'ai': 'ai',
     'admin': 'admin', 'dashboard': 'admin', 'account': 'delete_account', 'whatsapp': 'whatsapp',
+    'automation': 'automation',
 }
 _modules = {}
 
