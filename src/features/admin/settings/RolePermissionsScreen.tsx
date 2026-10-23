@@ -13,7 +13,7 @@ const LABELS: Record<string, string> = {
   'crm.view': 'Open the CRM', 'crm.view_all': 'See every lead', 'lead.create': 'Create leads', 'lead.edit': 'Edit leads & stages',
   'lead.assign': 'Assign lead owners / experts', 'lead.communicate': 'Call & WhatsApp customers',
   'consultation.create': 'Request expert consultations', 'consultation.assign': 'Assign consultations to experts',
-  'consultation.recommend': 'Give recommendations', 'quotation.view': 'View quotations', 'quotation.create': 'Create quotations',
+  'consultation.recommend': 'Give recommendations', 'product.view': 'Browse the product catalogue', 'quotation.view': 'View quotations', 'quotation.create': 'Create quotations',
   'quotation.approve': 'Approve quotations', 'quotation.share': 'Share quotations', 'quotation.respond': 'Accept / reject quotations',
   'tasks.manage': 'Manage own tasks', 'tasks.assign_others': "Manage others' tasks", 'users.manage': 'Manage team users',
   'announcements.send': 'Send announcements', 'reports.team': 'Team reports', 'settings.assignment': 'Edit assignment rules',

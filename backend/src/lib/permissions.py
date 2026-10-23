@@ -36,6 +36,7 @@ DEFAULT_PERMISSIONS = {
     'consultation.create':    {FARMER},
     'consultation.assign':    {SUPER_ADMIN, ADMIN},
     'consultation.recommend': {SUPER_ADMIN, ADMIN, EXPERT},
+    'product.view':           {SUPER_ADMIN, ADMIN, STAFF, EXPERT},  # catalogue; customers see products only via quotations
     'quotation.view':         {SUPER_ADMIN, ADMIN, STAFF, EXPERT},
     'quotation.create':       {SUPER_ADMIN, ADMIN, STAFF},
     'quotation.approve':      {SUPER_ADMIN, ADMIN},

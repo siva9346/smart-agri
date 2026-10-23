@@ -5,7 +5,8 @@
   "scripts": {
     "smoke": "node smoke.js",
     "flows": "node flows.js",
-    "test": "node smoke.js && node flows.js"
+    "visibility": "node visibility.js",
+    "test": "node smoke.js && node flows.js && node visibility.js"
   },
   "dependencies": {
     "playwright-core": "1.56.1"

@@ -1,6 +1,6 @@
 """
 GET    /orders              – farmer sees own orders; admin sees all (paginated)
-POST   /orders              – place order (farmer)
+POST   /orders              – place order (internal roles only; customers buy through accepted quotations)
 GET    /orders/{id}         – get order by orderId
 PUT    /orders/{id}         – update order status (admin) or cancel (farmer)
 DELETE /orders/{id}         – delete order (admin)
@@ -77,6 +77,8 @@ def _list(event):
 
 def _create(event):
     payload = require_auth(event)
+    if payload.get('role') == 'FARMER':
+        raise ForbiddenError('Products are available through quotations shared by our team')
     body    = parse_body(event)
     items   = body.get('items', [])
 

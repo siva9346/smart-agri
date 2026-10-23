@@ -258,6 +258,7 @@ def _data(obj) -> str:
 
 
 def _catalogue(limit: int = 80) -> list[dict]:
+    """Internal catalogue context — only ever used for EXPERT_ASSIST / QUOTATION_ASSIST (internal roles)."""
     items = scan_all(table('products'), max_items=500)
     items = [p for p in items if p.get('isActive', True) is not False]
     return [{'productId': p['productId'], 'name': p['name'], 'category': p.get('category', ''),
@@ -386,7 +387,11 @@ def _assist(event):
     if feature in ('CUSTOMER_ASSISTANT', 'CROP_PROBLEM'):
         system += (" You are talking to a farmer. Use simple language. For diagnosis, give likely causes with confidence, "
                    "what to check, safe first steps, and clearly say when they should use 'Get Suggestions from Experts'. "
-                   "Never give exact pesticide dosages as definitive instructions.")
+                   "Never give exact pesticide dosages as definitive instructions. "
+                   "You have no access to the Smart Agri product catalogue: do not name, recommend or price specific "
+                   "products, brands, discounts or stock. If a product is needed, describe the type of input (e.g. "
+                   "'a copper-based fungicide') and tell them an expert can recommend products and our team will "
+                   "share a quotation.")
         disclaimer = SAFETY_NOTE
         if not prompt and not image:
             raise HttpError(400, 'Ask a question or attach a photo')

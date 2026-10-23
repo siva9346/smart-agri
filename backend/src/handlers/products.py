@@ -1,8 +1,11 @@
 """
-GET    /products              – list products (all users, paginated)
+Product catalogue — internal roles only (permission `product.view`). Customers never
+browse the catalogue: they see products only inside quotations shared with them.
+
+GET    /products              – list products (internal, paginated; inactive items admin-only)
 POST   /products              – create product (admin only)
 POST   /products/upload-photo – upload a base64 product image to S3, returns its URL (admin only)
-GET    /products/{id}         – get product by productId
+GET    /products/{id}         – get product by productId (internal)
 PUT    /products/{id}         – update product (admin only)
 DELETE /products/{id}         – delete product (admin only)
 """
@@ -13,7 +16,8 @@ import base64
 import binascii
 import boto3
 from lib.db import table, encode_key, decode_key
-from lib.auth import require_auth, require_admin, AuthError, ForbiddenError
+from lib.auth import require_admin, is_admin_role, AuthError, ForbiddenError
+from lib.permissions import require_permission
 from lib.response import (
     ok, created, no_content, bad_request, not_found, server_err,
     parse_body, method, path_param, query_param,
@@ -105,16 +109,20 @@ def _delete_photo_if_owned(url: str):
 
 
 def _list(event):
-    require_auth(event)
+    actor  = require_permission(event, 'product.view')
     tbl    = table('products')
     cursor = query_param(event, 'cursor')
     kwargs = {'Limit': PAGE_SIZE}
     if cursor:
         kwargs['ExclusiveStartKey'] = decode_key(cursor)
 
-    resp = tbl.scan(**kwargs)
+    resp  = tbl.scan(**kwargs)
+    items = resp.get('Items', [])
+    if not is_admin_role(actor.get('role')):
+        # Unpublished products are visible to admins only.
+        items = [p for p in items if p.get('isActive', True) is not False]
     return ok({
-        'items':      resp.get('Items', []),
+        'items':      items,
         'nextCursor': encode_key(resp.get('LastEvaluatedKey')),
     })
 
@@ -143,10 +151,10 @@ def _create(event):
 
 
 def _get(event, product_id: str):
-    require_auth(event)
+    actor = require_permission(event, 'product.view')
     resp = table('products').get_item(Key={'productId': product_id})
     item = resp.get('Item')
-    if not item:
+    if not item or (item.get('isActive', True) is False and not is_admin_role(actor.get('role'))):
         return not_found('Product not found')
     return ok(item)
 

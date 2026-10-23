@@ -1,7 +1,7 @@
 import {
   Home, Bell, ListChecks, Sprout, HeartPulse, Stethoscope, ClipboardList, Sparkles, LayoutDashboard, Users, Columns3,
   UserPlus, Package, FileText, CalendarClock, Activity, BarChart3, UserCircle, MessagesSquare, ShieldCheck, GitBranch,
-  Megaphone, ScrollText, Settings, CloudRain, ShoppingBag, ShoppingCart, Truck, BookOpen, MessageSquare, AlertTriangle,
+  Megaphone, ScrollText, Settings, CloudRain, Truck, BookOpen, MessageSquare, AlertTriangle,
   Thermometer, TrendingUp, Gauge, Phone, CalendarDays, MapPin, Target,
 } from 'lucide-react-native';
 import { UserRole } from '../types/domain';
@@ -56,13 +56,12 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: 'Shop',
+    // No catalogue for customers: products are visible only inside quotations shared with them.
+    title: 'Quotations & Orders',
     show: isCustomer,
     items: [
-      { label: 'Fertilizer Store', icon: ShoppingBag, screen: 'FertilizerList' },
-      { label: 'Cart', icon: ShoppingCart, screen: 'Cart' },
-      { label: 'Order Track', icon: Truck, screen: 'PurchaseHistory' },
       { label: 'My Quotations', icon: FileText, screen: 'QuotationList' },
+      { label: 'Order Track', icon: Truck, screen: 'PurchaseHistory' },
       { label: 'Contact Support', icon: MessageSquare, screen: 'Enquiry' },
     ],
   },
@@ -85,7 +84,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Consultation Leads', icon: Users, screen: 'LeadList', params: { source: 'EXPERT_CONSULTATION' } },
       { label: 'Manual Leads', icon: UserPlus, screen: 'LeadList', params: { source: 'MANUAL' }, show: c => c.role !== 'EXPERT' },
       { label: 'Pipeline Board', icon: Columns3, screen: 'Pipeline' },
-      { label: 'Products', icon: Package, screen: 'FertilizerList' },
+      { label: 'Products', icon: Package, screen: 'FertilizerList', show: c => c.can('product.view') },
       { label: 'Quotations', icon: FileText, screen: 'QuotationList', show: c => c.can('quotation.view') },
       { label: 'Calls & WhatsApp', icon: Phone, screen: 'ActivityFeed' },
       { label: 'Follow-ups', icon: ListChecks, screen: 'TaskList', params: { kind: 'FOLLOW_UP' } },

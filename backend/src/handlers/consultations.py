@@ -363,6 +363,11 @@ def _present(c: dict, actor: dict, detail: bool = False) -> dict:
         for k in ('leadId', 'leadOwnerId', 'assignmentHistory', 'assignmentTier', 'escalatedAt', 'workloadReleased'):
             out.pop(k, None)
         out['messages'] = [m for m in c.get('messages', []) if not m.get('internal')]
+        if c.get('recommendation'):
+            # Recommended catalogue products reach the customer only through a quotation.
+            rec = dict(c['recommendation'])
+            out['quotationToFollow'] = bool(rec.pop('productIds', None))
+            out['recommendation'] = rec
     return out
 
 
@@ -414,7 +419,7 @@ def _get(event, cid):
         expert = table('users').get_item(Key={'userId': c['expertId']}).get('Item') or {}
         out['expert'] = {k: expert.get(k) for k in ('name', 'qualifications', 'experienceYears', 'specializations')
                          if expert.get(k)}
-    if c.get('recommendation', {}).get('productIds'):
+    if actor['role'] != FARMER and c.get('recommendation', {}).get('productIds'):
         out['recommendedProducts'] = _products(c['recommendation']['productIds'])
     return ok(out)
 

@@ -12,6 +12,7 @@ const INTERNAL = [
 ];
 const CUSTOMER = [
   { label: 'All', value: '' }, { label: 'Awaiting my reply', value: 'SHARED' }, { label: 'Accepted', value: 'ACCEPTED' },
+  { label: 'Declined', value: 'REJECTED' }, { label: 'Expired', value: 'EXPIRED' },
 ];
 
 export const QuotationListScreen = ({ navigation, route }: any) => {

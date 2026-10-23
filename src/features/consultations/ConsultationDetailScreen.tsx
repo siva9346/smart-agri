@@ -125,11 +125,15 @@ export const ConsultationDetailScreen = ({ navigation, route }: any) => {
             <Text style={[TYPE.body, { lineHeight: 22 }]} selectable>{c.recommendation.text}</Text>
             <Text style={TYPE.caption}>{c.recommendation.byName} · {formatDate(c.recommendation.at)}</Text>
             {!!c.followUpAt && <KeyValue label="Follow-up" value={formatDate(c.followUpAt)} />}
-            {!!c.recommendedProducts?.length && (
+            {/* Recommended products are internal; customers receive them as a quotation. */}
+            {isCustomer && c.quotationToFollow && (
+              <Alert type="info" message="Your expert has suggested products for this problem. Our team will share a quotation with you — see My Quotations." />
+            )}
+            {!isCustomer && !!c.recommendedProducts?.length && (
               <View style={{ gap: 6 }}>
                 <Text style={TYPE.label}>Recommended products</Text>
                 {c.recommendedProducts.map(p => (
-                  <TouchableOpacity key={p.productId} style={styles.product} disabled={!isCustomer}
+                  <TouchableOpacity key={p.productId} style={styles.product}
                                     onPress={() => navigation.navigate('ProductDetails', { productId: p.productId })}>
                     <Text style={[TYPE.body, { flex: 1 }]}>{p.name}</Text>
                     <Text style={TYPE.secondary}>{formatMoney(p.price)} / {p.unit}</Text>

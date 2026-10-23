@@ -22,7 +22,10 @@ export interface Consultation {
   farmLocation?: string; soilInfo?: string; irrigationInfo?: string; previousTreatments?: string; comments?: string;
   preferredContact: string; photoKeys?: string[]; photoUrls?: string[]; status: string; expertId?: string;
   expertName?: string; leadId?: string; messages: ConsultationMessage[]; createdAt: string; updatedAt: string;
-  recommendation?: { text: string; productIds: string[]; byName: string; at: string; aiAssisted?: boolean };
+  recommendation?: { text: string; productIds?: string[]; byName: string; at: string; aiAssisted?: boolean };
+  /** Customer view only: the expert recommended products, which will arrive as a quotation. */
+  quotationToFollow?: boolean;
+  /** Internal view only. */
   recommendedProducts?: { productId: string; name: string; unit: string; price: number; imageUrl?: string }[];
   assignmentHistory?: { expertName?: string; tier: string; reason: string; at: string; by: string }[];
   assignmentTier?: string; followUpAt?: string;
@@ -114,7 +117,8 @@ export const crmApi = {
 // ── Quotations ───────────────────────────────────────────────────────────────
 
 export interface QuotationItem {
-  productId: string; name: string; description?: string; unit: string; quantity: number; unitPrice: number;
+  /** Omitted in the customer view — customers have no catalogue access. */
+  productId?: string; name: string; description?: string; unit: string; quantity: number; unitPrice: number;
   discountPct: number; discountAmount: number; taxRatePct: number; taxAmount: number; subtotal: number; lineTotal: number;
 }
 export interface Quotation {
@@ -125,6 +129,10 @@ export interface Quotation {
   approvedByName?: string; createdAt: string; requiresApproval?: boolean; warnings?: string[]; rejectionReason?: string;
   customerComment?: string; approvalHistory?: { event: string; byName: string; note?: string; at: string }[];
   permissions?: { edit: boolean; approve: boolean; share: boolean; recordResponse: boolean };
+  /** Customer view only. */
+  companyContact?: string;
+  /** Internal view only: questions the customer asked about this quotation. */
+  clarifications?: { message: string; at: string }[];
 }
 export type QuoteLineInput = { productId: string; quantity: number; discountPct?: number };
 
@@ -143,6 +151,7 @@ export const quotationApi = {
   respond: (id: string, decision: 'ACCEPT' | 'REJECT', comment?: string) =>
     api.post<Quotation>(`/quotations/${id}/respond`, { decision, comment }),
   cancel: (id: string, reason?: string) => api.post<Quotation>(`/quotations/${id}/cancel`, { reason }),
+  clarify: (id: string, message: string) => api.post<{ sent: boolean }>(`/quotations/${id}/clarify`, { message }),
   document: (id: string) => api.get<{ html: string; fileName: string }>(`/quotations/${id}/document`),
 };
 

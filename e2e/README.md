@@ -16,4 +16,5 @@ cd e2e && npm install && npm test        # CHROME_PATH=/path/to/chrome if needed
 
 `smoke.js` opens every screen for every role and fails on crashes, failed API calls or error states.
 `flows.js` drives consultation → expert recommendation → quotation → approval → share → acceptance,
-and the announcement banner / X-dismiss behaviour. Screenshots of failures land in `e2e/shots/`.
+and the announcement banner / X-dismiss behaviour.
+`visibility.js` checks the customer has no product catalogue (menus, routes, API) while staff still do. Screenshots of failures land in `e2e/shots/`.

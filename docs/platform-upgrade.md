@@ -21,6 +21,31 @@
 Defaults live in `backend/src/lib/permissions.py`; Super Admin can grant/revoke per role in **Settings → Roles & permissions**.
 Customers can never receive internal permissions. Deactivated users are blocked on their next request.
 
+## Product visibility (quotation-only for customers)
+
+Customers (`FARMER`) never browse the catalogue. They see products **only** as priced lines inside quotations that
+an internal user has shared with them. This is enforced in every layer, not just by hiding menu items:
+
+| Layer | Customer | Internal roles |
+|---|---|---|
+| Permission | No `product.view`. It is outside `CUSTOMER_PERMISSIONS`, so a Super Admin grant cannot give it to customers | `product.view` (Super Admin, Admin, Staff, Expert; revocable per role) |
+| `GET /products`, `GET /products/{id}` | 403, including for unknown ids, so nothing leaks about which products exist | 200. Inactive (unpublished) products are visible to Admin and Super Admin only |
+| `POST /orders` | 403: customers buy through accepted quotations | unchanged |
+| Quotations API | Own quotations, only once shared (`SHARED/VIEWED/ACCEPTED/REJECTED/EXPIRED`). Lines have no `productId`. No stock warnings, approval history, share log, internal ids or questions log | full record |
+| Consultations API | Recommendation text only. `productIds` / `recommendedProducts` removed; `quotationToFollow: true` tells the app a quotation is coming | `recommendedProducts` with prices |
+| AI | Customer features get no catalogue data, and the prompt forbids naming, pricing or recommending specific products. Catalogue features (`EXPERT_ASSIST` draft, `QUOTATION_ASSIST`) are internal roles only, and their suggestions are validated against the catalogue | unchanged |
+| App navigation | No Fertilizers/Cart tabs and no store menu items. Catalogue screens are not registered in the customer stack and are wrapped in `internalOnly()`, so any route that reaches them renders "Not available" | Products menu shown when the user has `product.view` |
+
+**My Quotations** (customer tab and menu): filter by awaiting reply / accepted / declined / expired. Each quotation
+shows product names, descriptions, quantities, unit prices, discounts, tax, delivery, total, validity, terms,
+who prepared it and the company contact. From there the customer can download the PDF, accept or decline, or
+**Ask a question** (`POST /quotations/{id}/clarify`). That logs a lead activity, notifies the creator and the
+lead owner, and appears under "Customer questions" on the internal quotation view. There is no link from a quotation
+to any product page.
+
+Product photos are still public S3 objects under `products/` with unguessable UUID keys. They are images only;
+no catalogue listing can be built from them.
+
 ## New backend endpoints
 
 | Path | Function |
@@ -170,4 +195,7 @@ point a build at a staging stack.
   compatibility, push, WhatsApp (signatures, statuses, inbound, opt-out), field work, reports, targets, automation
   rules (enable/disable, idempotency, approve/reject, retry). CI runs them before every deploy.
 - `e2e/` (Playwright, Expo web + local API): every screen for every role, plus the full consultation → quotation →
-  acceptance flow and the banner/X-dismiss behaviour. See `e2e/README.md`.
+  acceptance flow and the banner/X-dismiss behaviour. `e2e/visibility.js` checks that customers have no catalogue
+  in the UI, by route or via the API, while staff can still browse it. See `e2e/README.md`.
+- `backend/tests/test_product_visibility.py`: catalogue, order, quotation, consultation and AI restrictions for
+  customers, and catalogue access for internal roles.

@@ -4,7 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
-import { LogOut, Home, ShoppingBag, CloudRain, ShoppingCart, User as UserIcon, ArrowLeft, Bell, Menu } from 'lucide-react-native';
+import { LogOut, Home, FileText, CloudRain, Stethoscope, User as UserIcon, ArrowLeft, Bell, Menu } from 'lucide-react-native';
 import { NotificationsScreen } from '../features/notifications/NotificationsScreen';
 import { useUnreadNotifications } from '../features/notifications/useUnreadNotifications';
 import { CustomDrawer, useDrawer } from './CustomDrawer';
@@ -217,21 +217,21 @@ const FarmerTabs = () => (
       component={FarmerDashboard} 
       options={{ tabBarIcon: ({ color }) => <Home color={color} size={24} /> }}
     />
-    <Tab.Screen 
-      name="Fertilizers" 
-      component={ProductListScreen} 
-      initialParams={{ role: 'customer' }}
-      options={{ tabBarIcon: ({ color }) => <ShoppingBag color={color} size={24} /> }}
+    {/* No product catalogue for customers — products reach them only through quotations. */}
+    <Tab.Screen
+      name="QuotationsTab"
+      component={QuotationListScreen}
+      options={{ title: 'My Quotations', tabBarIcon: ({ color }) => <FileText color={color} size={24} /> }}
+    />
+    <Tab.Screen
+      name="ExpertsTab"
+      component={ConsultationListScreen}
+      options={{ title: 'Experts', tabBarIcon: ({ color }) => <Stethoscope color={color} size={24} /> }}
     />
     <Tab.Screen 
       name="Weather" 
       component={RainUpdates} 
       options={{ tabBarIcon: ({ color }) => <CloudRain color={color} size={24} /> }}
-    />
-    <Tab.Screen 
-      name="CartTab" 
-      component={CartScreen} 
-      options={{ title: 'Cart', tabBarIcon: ({ color }) => <ShoppingCart color={color} size={24} /> }}
     />
   </Tab.Navigator>
 );
@@ -276,15 +276,7 @@ const FarmerNavigator = ({ onLogout }: any) => {
         };
       }}
     />
-    <FarmerStack.Screen
-      name="FertilizerList"
-      component={ProductListScreen}
-      initialParams={{ role: 'customer' }}
-      options={{ headerShown: false }}
-    />
-    <FarmerStack.Screen name="ProductDetails" component={ProductDetailsScreen} options={{ title: 'Product Info' }} />
-    <FarmerStack.Screen name="Cart" component={CartScreen} options={{ title: 'My Cart' }} />
-    <FarmerStack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Confirm Order' }} />
+    {/* Catalogue screens (FertilizerList, ProductDetails, Cart, Checkout) are intentionally not registered for customers. */}
     <FarmerStack.Screen name="RainUpdates" component={RainUpdates} options={{ headerShown: false }} />
     <FarmerStack.Screen name="Symptoms" component={SymptomsView} options={{ title: 'Crop Symptoms' }} />
     <FarmerStack.Screen name="AddLand" component={AddLandScreen} options={{ headerShown: false }} />

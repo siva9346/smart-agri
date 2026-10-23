@@ -55,7 +55,7 @@ export const QuotationBuilderScreen = ({ navigation, route }: any) => {
   useEffect(() => {
     const qd = existing.data;
     if (!qd) return;
-    setLines(qd.items.map(i => ({ productId: i.productId, quantity: String(i.quantity), discountPct: String(i.discountPct ?? 0) })));
+    setLines(qd.items.map(i => ({ productId: i.productId ?? '', quantity: String(i.quantity), discountPct: String(i.discountPct ?? 0) })));
     setDelivery(String(qd.deliveryCharge ?? 0));
     setValidity(String(qd.validityDays ?? ''));
     setPaymentTerms(qd.paymentTerms ?? '');

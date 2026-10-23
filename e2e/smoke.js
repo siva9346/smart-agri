@@ -12,7 +12,7 @@ const ADMIN = [['AdminOverview'], ['LeadList', { view: 'all' }], ['UserManagemen
   ['Performance'], ['AddCustomer'], ['ManageStock'], ['SalesReport'], ['EnquiryList'], ['AlertsList']];
 const SUPER = [['WhatsAppConfig'], ['AiConfig'], ['RolePermissions'], ['AuditLog'], ['AddAdmin']];
 const FARMER = [['ConsultationRequest'], ['ConsultationList'], ['QuotationList'], ['AiAssistant'], ['Settings'], ['Preferences'],
-  ['Notifications'], ['CropTrackingHome'], ['Symptoms'], ['FertilizerList'], ['PurchaseHistory'], ['Enquiry'], ['ExpertAdvice'], ['Profile']];
+  ['Notifications'], ['CropTrackingHome'], ['Symptoms'], ['PurchaseHistory'], ['Enquiry'], ['ExpertAdvice'], ['Profile']];
 const ROLES = { '9000000001': [...INTERNAL, ...ADMIN, ...SUPER], '9000000002': [...INTERNAL, ...ADMIN],
                 '9000000003': INTERNAL, '9000000004': INTERNAL, '9000000006': FARMER };
 const BAD = /Something went wrong|Internal server error|Unknown route|Access denied|Failed to load|Error:/i;

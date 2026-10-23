@@ -1,6 +1,9 @@
 """
 Product quotations linked to CRM leads.
 
+Customers have no catalogue access: a quotation shared with them is the only place they see
+products, and only the priced lines it contains (no product ids, stock warnings or internal notes).
+
 GET  /quotations                   – internal: role-scoped (?status=&leadId=); customer: own, once shared
 POST /quotations/preview           – compute totals without saving
 POST /quotations                   – create DRAFT {leadId, items:[{productId, quantity, discountPct}], deliveryCharge, ...}
@@ -11,6 +14,7 @@ POST /quotations/{id}/approve      – PENDING_APPROVAL → APPROVED
 POST /quotations/{id}/reject       – PENDING_APPROVAL → DRAFT {reason}
 POST /quotations/{id}/share        – {channel: WHATSAPP|IN_APP} → SHARED; returns message text + click-to-chat URL
 POST /quotations/{id}/respond      – {decision: ACCEPT|REJECT, comment} (customer, or staff recording it)
+POST /quotations/{id}/clarify      – customer asks the team a question {message}
 POST /quotations/{id}/cancel
 GET  /quotations/{id}/document     – printable HTML (the app renders it to PDF on device)
 
@@ -62,7 +66,7 @@ def _route(event, m, seg):
         return None
     return {
         'submit': _submit, 'approve': _approve, 'reject': _reject, 'share': _share,
-        'respond': _respond, 'cancel': _cancel,
+        'respond': _respond, 'cancel': _cancel, 'clarify': _clarify,
     }.get(action, lambda *_: None)(event, qid)
 
 
@@ -95,8 +99,10 @@ def _load(actor: dict, qid: str) -> dict:
 def _present(q: dict, actor: dict) -> dict:
     out = dict(q)
     if actor['role'] == FARMER:
-        for k in ('approvalHistory', 'createdBy', 'approvedBy', 'leadId', 'requiresApproval', 'warnings', 'rejectionReason'):
+        for k in ('approvalHistory', 'createdBy', 'approvedBy', 'approvedByName', 'leadId', 'requiresApproval', 'warnings',
+                  'rejectionReason', 'shares', 'createdByRole', 'responseRecordedBy', 'clarifications'):
             out.pop(k, None)
+        out['items'] = [{k: v for k, v in i.items() if k != 'productId'} for i in q.get('items', [])]
     else:
         out['permissions'] = {
             'edit': q['status'] == 'DRAFT' and (q.get('createdBy') == actor['userId'] or actor['role'] in ('ADMIN', SUPER_ADMIN)),
@@ -121,8 +127,10 @@ def _list(event):
         kwargs['ExclusiveStartKey'] = cursor
 
     if actor['role'] == FARMER:
+        # "SHARED" means awaiting the customer's reply, which includes quotations they have opened.
+        wanted = ['SHARED', 'VIEWED'] if status == 'SHARED' else [status] if status else list(CUSTOMER_VISIBLE)
         kwargs.update(IndexName='CustomerIndex', KeyConditionExpression=Key('customerId').eq(actor['userId']),
-                      FilterExpression=Attr('status').is_in(list(CUSTOMER_VISIBLE)))
+                      FilterExpression=Attr('status').is_in([s for s in wanted if s in CUSTOMER_VISIBLE] or ['-']))
     else:
         ensure(actor, 'quotation.view')
         if lead_id:
@@ -390,6 +398,27 @@ def _respond(event, qid):
     return ok(_present(updated, actor))
 
 
+def _clarify(event, qid):
+    actor = require_actor(event, FARMER)
+    ensure(actor, 'quotation.respond')
+    q = _load(actor, qid)
+    message = clean_str(parse_body(event), 'message', 1000, required=True)
+    if len(q.get('clarifications') or []) >= 20:
+        raise HttpError(429, 'Please call or message the team directly about this quotation')
+    entry = {'message': message, 'at': now_iso()}
+    table('quotations').update_item(
+        Key={'quotationId': qid},
+        UpdateExpression='SET clarifications = list_append(if_not_exists(clarifications, :empty), :e), updatedAt = :now',
+        ExpressionAttributeValues={':empty': [], ':e': [entry], ':now': entry['at']},
+    )
+    log_activity(q['leadId'], 'QUOTATION', None, f"Customer asked about quotation {q['quotationNumber']}: {message}",
+                 {'quotationId': qid})
+    lead = get_lead(q['leadId'])
+    notify_users([q['createdBy'], lead.get('ownerId')], 'Customer question on quotation',
+                 f"{q.get('customerName')} · {q['quotationNumber']}: {message[:140]}", 'QUOTATION', f'quotation/{qid}')
+    return ok({'sent': True})
+
+
 def _cancel(event, qid):
     actor = require_permission(event, 'quotation.create')
     q = _load(actor, qid)
@@ -413,7 +442,10 @@ def _get(event, qid):
         q = update_item(table('quotations'), {'quotationId': qid},
                         {'status': 'VIEWED', 'viewedAt': now_iso()}, condition=Attr('status').eq('SHARED'))
         log_activity(q['leadId'], 'QUOTATION', None, f"Customer viewed quotation {q['quotationNumber']} in the app")
-    return ok(_present(q, actor))
+    out = _present(q, actor)
+    if actor['role'] == FARMER:
+        out['companyContact'] = get_setting('quotation').get('companyContact', '')
+    return ok(out)
 
 
 # ── Printable document ──────────────────────────────────────────────────────

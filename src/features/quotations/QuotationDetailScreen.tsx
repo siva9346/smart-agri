@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Linking, Platform } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { Send, CheckCircle, XCircle, Pencil, FileDown, MessageCircle, Bell, Ban, ExternalLink } from 'lucide-react-native';
+import { Send, CheckCircle, XCircle, Pencil, FileDown, MessageCircle, Bell, Ban, ExternalLink, HelpCircle } from 'lucide-react-native';
 import { quotationApi, Quotation } from '../../services/platform';
 import { useApi, useAuth } from '../../hooks/useApi';
 import { useWhatsAppEnabled } from '../../hooks/useWhatsApp';
@@ -12,7 +12,7 @@ import {
 } from '../../ui';
 import { TOKENS, TYPE } from '../../theme';
 
-type Dialog = 'reject' | 'cancel' | 'accept' | 'decline' | 'recordAccept' | 'recordDecline' | null;
+type Dialog = 'reject' | 'cancel' | 'accept' | 'decline' | 'recordAccept' | 'recordDecline' | 'clarify' | null;
 
 export const QuotationDetailScreen = ({ navigation, route }: any) => {
   const id: string = route.params.id;
@@ -50,6 +50,18 @@ export const QuotationDetailScreen = ({ navigation, route }: any) => {
       } else {
         toast('Sent to the customer’s app');
       }
+    } catch (e: any) {
+      toast(e.message, 'error');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const askQuestion = async (message: string) => {
+    setBusy('clarify');
+    try {
+      await quotationApi.clarify(id, message);
+      toast('Sent — our team will get back to you');
     } catch (e: any) {
       toast(e.message, 'error');
     } finally {
@@ -111,12 +123,13 @@ export const QuotationDetailScreen = ({ navigation, route }: any) => {
         )}
 
         <Section title="Items">
-          {q.items.map(i => (
-            <View key={i.productId} style={{ gap: 2, paddingVertical: 6 }}>
+          {q.items.map((i, n) => (
+            <View key={i.productId ?? `${n}-${i.name}`} style={{ gap: 2, paddingVertical: 6 }}>
               <Row style={{ justifyContent: 'space-between' }}>
                 <Text style={[TYPE.h3, { flex: 1 }]}>{i.name}</Text>
                 <Text style={TYPE.h3}>{formatMoney(i.lineTotal)}</Text>
               </Row>
+              {!!i.description && <Text style={TYPE.secondary}>{i.description}</Text>}
               <Text style={TYPE.caption}>
                 {i.quantity} {i.unit} × {formatMoney(i.unitPrice)}
                 {Number(i.discountPct) ? ` · ${i.discountPct}% off (−${formatMoney(i.discountAmount)})` : ''}
@@ -137,9 +150,19 @@ export const QuotationDetailScreen = ({ navigation, route }: any) => {
           <KeyValue label="Payment" value={q.paymentTerms} />
           <KeyValue label="Delivery" value={q.deliveryTerms} />
           <KeyValue label="Notes" value={q.notes} />
-          {!isCustomer && <KeyValue label="Prepared by" value={q.createdByName} />}
+          <KeyValue label="Valid until" value={q.validUntil} />
+          <KeyValue label="Prepared by" value={q.createdByName} />
+          {isCustomer && <KeyValue label="Contact" value={q.companyContact} />}
           {!isCustomer && <KeyValue label="Approved by" value={q.approvedByName} />}
         </Section>
+
+        {!isCustomer && !!q.clarifications?.length && (
+          <Section title="Customer questions">
+            {q.clarifications.map((c, i) => (
+              <Text key={i} style={TYPE.secondary}>{formatDate(c.at)} — {c.message}</Text>
+            ))}
+          </Section>
+        )}
 
         <Section title="Actions">
           {customerCanRespond && (
@@ -164,6 +187,9 @@ export const QuotationDetailScreen = ({ navigation, route }: any) => {
               <Button title="Record accepted" style={{ flex: 1 }} onPress={() => setDialog('recordAccept')} />
               <Button title="Record declined" style={{ flex: 1 }} onPress={() => setDialog('recordDecline')} />
             </Row>
+          )}
+          {isCustomer && (
+            <Button title="Ask a question" icon={HelpCircle} loading={busy === 'clarify'} onPress={() => setDialog('clarify')} />
           )}
           <Button title="Download / share PDF" icon={FileDown} loading={busy === 'pdf'} onPress={pdf} />
           {cancellable && (p?.edit || isAdmin) && <Button title="Cancel quotation" type="danger" icon={Ban} onPress={() => setDialog('cancel')} />}
@@ -200,6 +226,9 @@ export const QuotationDetailScreen = ({ navigation, route }: any) => {
       <ConfirmDialog visible={dialog === 'reject'} title="Send back for changes" input={{ placeholder: 'What should change?', required: true }}
                      confirmText="Send back" danger loading={!!busy} onCancel={() => setDialog(null)}
                      onConfirm={t => { setDialog(null); run('reject', () => quotationApi.reject(id, t), 'Sent back to the creator'); }} />
+      <ConfirmDialog visible={dialog === 'clarify'} title="Ask about this quotation" input={{ placeholder: 'Your question for our team', required: true }}
+                     confirmText="Send" onCancel={() => setDialog(null)}
+                     onConfirm={t => { setDialog(null); askQuestion(t); }} />
       <ConfirmDialog visible={dialog === 'cancel'} title="Cancel quotation?" input={{ placeholder: 'Reason (optional)' }} danger
                      confirmText="Cancel quotation" onCancel={() => setDialog(null)}
                      onConfirm={t => { setDialog(null); run('cancel', () => quotationApi.cancel(id, t), 'Cancelled'); }} />

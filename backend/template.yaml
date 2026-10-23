@@ -173,11 +173,12 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: handlers.products.handler
-      Description: Fertilizer/product catalogue
+      Description: Fertilizer/product catalogue (internal roles only)
       Environment:
         Variables:
           PHOTOS_BUCKET: !Ref RecordPhotosBucket
       Policies:
+        - !Ref CoreDataPolicy   # users + settings: live account check and role permissions
         - DynamoDBCrudPolicy:
             TableName: !Ref ProductsTable
         - S3WritePolicy:
